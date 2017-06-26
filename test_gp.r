@@ -114,3 +114,57 @@ ftrue <- dmvnorm(xstar, mean=rep(0,D), log=logscale)
 plot(fstar, ftrue)
 
 plot(log(fstar), log(ftrue))
+
+
+
+
+
+
+# Squared x mean
+
+x <- log(rgamma(500, shape = 2, rate = 5))
+plot(x)
+plot(density(x, bw = "SJ"))
+
+p <- dgamma(exp(x), 2, 5, log = T)
+
+plot(x, p)
+plot(x - mean(x), p)
+
+cx <- x - mean(x)
+plot(cx, p)
+plot(cx, p - cx*cx)
+
+source("gp.r")
+source("pdf.r")
+
+gp <- fit.gp(cx, p + cx*cx, kernel = "matern32")
+
+x2 <- seq(-8, 8, length.out = 100)
+p2 <- mdd.pdf(gp, x2) - x2*x2
+
+plot(x2, p2, ylim=c(-10,2), typ="l")
+points(cx, p)
+
+
+
+x <- log(rgamma(500, shape = 2, rate = 5))
+plot(x)
+plot(density(x, bw = "SJ"))
+p <- dgamma(exp(x), 2, 5, log = T)
+plot(x, p)
+
+x <- rnorm(500, mean=2, sd=0.5)
+p <- dnorm(x, 2, 0.5)
+plot(x, p)
+plot(x, log(p))
+
+gp <- fit.gp(x, p, kernel="matern32")
+
+x2 <- seq(0,4, length.out=100)
+p2 <- mdd.pdf(gp, x2)
+plot(x2, p2)
+
+str(gp$L)
+
+samples <- rmvnorm(100, rep(0,500), gp$kxx)

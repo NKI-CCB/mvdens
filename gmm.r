@@ -148,6 +148,15 @@ fit.gmm <- function(x, K, epsilon = 0.01, maxsteps = 100, verbose = F) {
     return(result)
 }
 
+fit.gmm.transformed <- function(x, K, bounds, epsilon = 0.01, maxsteps = 100, verbose = F) {
+    result <- list()
+    result$type <- "gmm.transformed"
+    result$transform.bounds <- bounds
+    transformed <- mdd.transform_to_unbounded(x, bounds)
+    result$gmm <- fit.gmm(transformed, K, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+    return(result)
+}
+
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 0.01, maxsteps = 100, verbose = F) {
     fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
 
@@ -178,6 +187,21 @@ gmm.BIC <- function(x, K = 1:9, epsilon = 0.01, maxsteps = 100, verbose = F) {
         result$BIC[k] <- result$fits[[k]]$BIC
     }
     return(result)
+}
+
+gmm.transformed.BIC <- function(x, K = 1:9, bounds, epsilon = 0.01, maxsteps = 100, verbose = F) {
+  result <- list()
+  result$K <- K
+  result$BIC <- rep(NA, length(K))
+  result$fits <- list()
+  for (k in 1:length(K)) {
+    if (verbose) {
+      cat("Fitting K=", K[k], "\n")
+    }
+    result$fits[[k]] <- fit.gmm.transformed(x, K[k], bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+    result$BIC[k] <- result$fits[[k]]$gmm$BIC
+  }
+  return(result)
 }
 
 gmm.truncated.BIC <- function(x, K = 1:9, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 0.01, maxsteps = 100, verbose = F) {

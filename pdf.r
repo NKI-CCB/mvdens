@@ -41,6 +41,10 @@ mdd.pdf <- function(mddens_fit, x, log = FALSE) {
                 return(sum(p))
             }
         }
+    } else if (mddens_fit$type == "gmm.transformed") {
+        transformed <- mdd.transform_to_unbounded(x, mddens_fit$transform.bounds)
+        p <- mdd.pdf(mddens_fit$gmm, transformed, log = log)
+        return(mdd.correct_p_for_transformation(x, mddens_fit$transform.bounds, p, log = log))
     } else if (mddens_fit$type == "gmm.truncated") {
         require(tmvtnorm)
         if (is.matrix(x)) {

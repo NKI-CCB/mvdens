@@ -39,7 +39,11 @@ source("transform.r")
   retval$predicted <- mdd.pdf(retval$structure, x.test, log=T)
   
   error <- retval$predicted - p.test
+  retval$MSEabs <- mean(error * error)
+
+  error <- (retval$predicted - mean(retval$predicted)) - (p.test - mean(p.test))
   retval$MSE <- mean(error * error)
+
   retval$cor_pearson <- cor(retval$predicted, p.test, method="pearson")
   retval$cor_spearman <- cor(retval$predicted, p.test, method="spearman")
   
@@ -48,6 +52,9 @@ source("transform.r")
 
 .train.gmm <- function(x.train, p.train, ...) {
   return(fit.gmm(x.train, ...))
+}
+.train.gmm.transformed <- function(x.train, p.train, ...) {
+    return(fit.gmm.transformed(x.train, ...))
 }
 .train.gmm.truncated <- function(x.train, p.train, ...) {
   return(fit.gmm.truncated(x.train, ...))
@@ -74,6 +81,8 @@ mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
   train.function <- NULL
   if (type == "gmm") {
     train.function <- .train.gmm
+  } else if (type == "gmm.transformed") {
+    train.function <- .train.gmm.transformed
   } else if (type == "gmm.truncated") {
     train.function <- .train.gmm.truncated
   } else if (type == "gp") {
@@ -89,25 +98,6 @@ mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
   if (parallel) {
     require(foreach)
       cv$estimates <- foreach(i = 1:nfolds) %dopar% {
-        
-        source('gmm.r')
-        source('pdf.r')
-        .cv.iteration <- function(train.function, x.train, x.test, p.train, p.test, ...)
-        {
-          retval <- list()
-          
-          retval$structure <- train.function(x.train, p.train, ...)
-          retval$predicted <- mdd.pdf(retval$structure, x.test, log=T)
-          
-            error <- retval$predicted - p.test
-            error[is.infinite(error)] <- -100
-          retval$MSE <- mean(error * error)
-          retval$cor_pearson <- cor(retval$predicted, p.test, method="pearson")
-          retval$cor_spearman <- cor(retval$predicted, p.test, method="spearman")
-          
-          return(retval)
-        }
-        
         test_ix <- cv$reordering[(i-1)*holdout_size + 1:holdout_size]
         train_ix <- setdiff(cv$reordering, test_ix)
         return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...))
@@ -116,21 +106,21 @@ mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
     cv$estimates <- list()
     for (i in 1:nfolds) {
       cat(i, "\n")
-      
       test_ix <- cv$reordering[(i-1)*holdout_size + 1:holdout_size]
       train_ix <- setdiff(cv$reordering, test_ix)
-      
       cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...)
     }
   }
   
   cv$predicted <- rep(NA, nrow(x))
+  cv$MSEabs <- rep(NA, nfolds)
   cv$MSE <- rep(NA, nfolds)
   cv$cor_pearson <- rep(NA, nfolds)
   cv$cor_spearman <- rep(NA, nfolds)
     for (i in 1:nfolds) {
         test_ix <- cv$reordering[(i - 1) * holdout_size + 1:holdout_size]
         cv$predicted[test_ix] <- cv$estimates[[i]]$predicted
+        cv$MSEabs[i] <- cv$estimates[[i]]$MSEabs
         cv$MSE[i] <- cv$estimates[[i]]$MSE
         cv$cor_pearson[i] <- cv$estimates[[i]]$cor_pearson
         cv$cor_spearman[i] <- cv$estimates[[i]]$cor_spearman
@@ -138,6 +128,16 @@ mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
   
   return(cv)
 }
+
+cv.compare.plots <- function(cv_list)
+{
+    mse <- lapply(cv_list, function(x) { log(x$MSE) })
+    beeswarm(mse, ylab = "log mean squared error", las = 2)
+
+    correlation <- lapply(cv_list, function(x) { x$cor_spearman })
+    beeswarm(correlation, ylab = "Spearman correlation", las = 2)
+}
+
 # 
 # library(doParallel)
 # cl <- makeCluster(4)

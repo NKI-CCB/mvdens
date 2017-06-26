@@ -286,22 +286,22 @@ marginal.correct.p <- function(marginal, x, p, log = T) {
     return(p)
 }
 
-setClass('mdd.marginal')
-setMethod(summary, 'mdd.marginal', function(object, ...) {
-    cat("mddens marginal distribution of type:", object$type, "\n")
-    if (object$type == "ecdf") {
-        cat("  Number of samples:", nrow(object$x), "\n")
-        cat("  Bandwidths:\n")
-        for (i in 1:length(object$bw)) {
-            cat("   ", object$varnames[i], "-", object$bw[i], "\n")
-        }
-    } else if (object$type == "parametric") {
-        for (i in 1:length(object$dists)) {
-            cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "\n")
-        }
-    } else if (object$type == "mixture") {
-        for (i in 1:length(object$dists)) {
-            cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "- p:", paste(object$dists[[i]]$p, collapse = ","), "\n")
-        }
-    }
-})
+# setClass('mdd.marginal')
+# setMethod(summary, 'mdd.marginal', function(object, ...) {
+#     cat("mddens marginal distribution of type:", object$type, "\n")
+#     if (object$type == "ecdf") {
+#         cat("  Number of samples:", nrow(object$x), "\n")
+#         cat("  Bandwidths:\n")
+#         for (i in 1:length(object$bw)) {
+#             cat("   ", object$varnames[i], "-", object$bw[i], "\n")
+#         }
+#     } else if (object$type == "parametric") {
+#         for (i in 1:length(object$dists)) {
+#             cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "\n")
+#         }
+#     } else if (object$type == "mixture") {
+#         for (i in 1:length(object$dists)) {
+#             cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "- p:", paste(object$dists[[i]]$p, collapse = ","), "\n")
+#         }
+#     }
+# })

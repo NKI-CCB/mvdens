@@ -42,19 +42,53 @@
     return(sigma)
 }
 
-.gp.log.marginal.likelihood <- function(l, result, verbose) {
+.kernel.matern52 <- function(x1, x2, l) {
+    if (is.matrix(x1)) {
+        sigma <- matrix(0, nrow(x1), nrow(x2))
+        for (i in 1:nrow(sigma)) {
+            v <- t(x1[i,] - t(x2))
+            rsq <- apply(v * v, 1, sum)
+            y <- sqrt(5) * sqrt(rsq) / l
+            sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
+        }
+    } else {
+        sigma <- matrix(0, length(x1), length(x2))
+        for (i in 1:nrow(sigma)) {
+            v <- x1[i] - x2
+            y <- sqrt(3) * sqrt(v * v) / l
+            sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
+        }
+    }
+
+    return(sigma)
+}
+
+.gp.log.marginal.likelihood <- function(x, result, verbose) {
+    l <- x[1]
+    b1 <- x[2]
+    b2 <- x[3]
     kxx <- result$kernel(result$x, result$x, l) + result$sigman * diag(result$n)
-    L <- chol(kxx)
-    p1 <- sum(backsolve(L, result$p, transpose = T) ^ 2)
+    
+    return_value <- try(L <- chol(kxx), silent = !verbose)
+    if (inherits(return_value, "try-error")) {
+      return(NA)
+    }
+    
+    mean_sub <- rep(NA, length(result$p))
+    for (i in 1:length(result$p)) {
+      mean_sub[i] <- result$p[i] - b1 - b2 * (result$x[i,] %*% result$x[i,])
+    }
+      
+    p1 <- sum(backsolve(L, mean_sub, transpose = T) ^ 2)
     logdet <- 2.0 * sum(log(diag(L)))
-    logml <- -0.5 * p1 - 0.5 * logdet - 0.5 * result$n * log2(pi)
+    logml <- -0.5 * p1 - 0.5 * logdet - 0.5 * result$n * log(2*pi)
     if (verbose) {
-        cat(c("l:", l, "logml:",logml, "\n"))
+        cat(c("l:", l, "b1:", b1, "b2:", b2, "logml:",logml, "\n"))
     }
     return(logml)
 }
 
-fit.gp <- function(x, p, kernel, l=1, sigman=1e-10, verbose=T) {
+fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
     result <- list()
     result$type <- "gp"
 
@@ -68,28 +102,39 @@ fit.gp <- function(x, p, kernel, l=1, sigman=1e-10, verbose=T) {
         result$kernel <- .kernel.squared.exponential
     } else if (kernel == "matern32") {
         result$kernel <- .kernel.matern32
+    } else if (kernel == "matern52") {
+        result$kernel <- .kernel.matern52
     }
     result$x <- x
     result$p <- p
     result$sigman <- sigman
 
-    if (length(l) > 1) {
+    if (is.na(l) || is.na(b1) || is.na(b2)) {
         # Kernel length range, find optimal marginal likelihood
-        opt <- optimize(.gp.log.marginal.likelihood, l, maximum = T, result=result, verbose=verbose)
-        result$l <- opt$maximum
-
-        #ctrl <- list()
-        #ctrl$fnscale <- -1.0
-        #ctrl$reltol <- 1e-6
-        #opt <- optim(c(1, 1e-8), .gp.log.marginal.likelihood, result = result, verbose = verbose, method = "Nelder-Mead", lower=c(0.01, 1e-12), upper = c(100,0.1), control = ctrl)
-
+        #opt <- optimize(.gp.log.marginal.likelihood, l, maximum = T, result=result, verbose=verbose)
+        #result$l <- opt$maximum
+      
+        ctrl <- list()
+        ctrl$fnscale <- -1.0
+        ctrl$reltol <- 1e-6
+        opt <- optim(c(1, mean(p), 1), .gp.log.marginal.likelihood, result = result, verbose = verbose, method = "Nelder-Mead", control = ctrl)
+        result$l <- opt$par[1]
+        result$b1 <- opt$par[2]
+        result$b2 <- opt$par[3]
     } else {
         result$l <- l
+        result$b1 <- b1
+        result$b2 <- b2
     }
 
     result$kxx <- result$kernel(x, x, result$l) + 1e-12 * diag(result$n)
     result$L <- chol(result$kxx)
-    result$alpha <- backsolve(result$L, backsolve(result$L, p, transpose = TRUE))
+    
+    mean_sub <- rep(NA, length(result$p))
+    for (i in 1:length(result$p)) {
+      mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$x[i,] %*% result$x[i,])
+    }
+    result$alpha <- backsolve(result$L, backsolve(result$L, mean_sub, transpose = TRUE))
 
     return(result)
 }
@@ -99,6 +144,10 @@ evaluate.gp <- function(fit, x) {
 
     kxsx <- fit$kernel(x, fit$x, fit$l)
     f <- kxsx %*% fit$alpha
+
+    for (i in 1:nrow(x)) {
+        f[i] <- f[i] + fit$b1 + fit$b2 * (x[i,] %*% x[i,])
+    }
 
     return(f)
 }

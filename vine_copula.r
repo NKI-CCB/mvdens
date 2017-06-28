@@ -11,8 +11,9 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
         result$marginal <- NULL
         transformed <- x
     }
-    result$RVM <- RVineStructureSelect(transformed, indeptest = T, cores = 1, trunclevel = trunclevel, progress = verbose)
-    result$RVM$names <- colnames(x)
+    RVM <- RVineStructureSelect(transformed, indeptest = T, cores = 1, trunclevel = trunclevel, progress = verbose)
+    RVM$names <- colnames(x)
+    result$RVM <- RVineMatrixNormalize(RVM)
     return(structure(result, class = "mdd.vine.copula"))
 }
 

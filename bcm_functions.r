@@ -167,7 +167,7 @@ bounds <- prior_bounds_all(model, q=c(0,1))
 
 source("vine_copula.r")
 
-vc <- fit.vine.copula(model$posterior$samples, marginalfn = fit.marginal.ecdf)
+vc <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.ecdf)
 mdd.export.bcm(model, vc, "trapper_posterior_vc_ecdf.xml")
 
 vc_parametric <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.parametric)

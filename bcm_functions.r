@@ -87,13 +87,38 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
         }
     } else if (fit$type == "vine.copula") {
         xmlAttrs(xml_root) <- c(type = "VineCopula")
-        for (i in 1:model$nvar) {
+        for (i in 1:bcm.model$nvar) {
             margin_node <- xmlNode("marginal")
             if (fit$marginal$type == "ecdf") {
                 xmlAttrs(margin_node) <- c(name = bcm.model$variables[i],
                                            type = "ecdf",
                                            bw = fit$marginal$bw[i],
                                            x = paste(sort(fit$marginal$x[[i]]), collapse = ";"))
+            } else if (fit$marginal$type == "parametric") {
+                dist <- fit$marginal$dists[[i]]
+                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = "parametric")
+                if (dist$type == "normal") {
+                    xmlAttrs(margin_node) <- c(mu = dist$mean, sigma = dist$sd)
+                } else if (dist$type == "beta") {
+                    xmlAttrs(margin_node) <- c(a = dist$shape1, b = dist$shape2, min = dist$min, max = dist$max)
+                } else if (dist$type == "gamma") {
+                    xmlAttrs(margin_node) <- c(shape = dist$shape, scale = dist$scale)
+                }
+            } else if (fit$marginal$type == "mixture") {
+                dist <- fit$marginal$dists[[i]]
+                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = "mixture", p = paste(dist$p, collapse = ";"))
+                if (dist$type == "normal") {
+                    xmlAttrs(margin_node) <- c(mu = paste(dist$mean, collapse = ";"),
+                                               sigma = paste(dist$sd, collapse = ";"))
+                } else if (dist$type == "beta") {
+                    xmlAttrs(margin_node) <- c(a = paste(dist$a, collapse = ";"),
+                                               b = paste(dist$b, collapse = ";"),
+                                               min = dist$min,
+                                               max = dist$max)
+                } else if (dist$type == "gamma") {
+                    xmlAttrs(margin_node) <- c(shape = paste(dist$shape, collapse = ";"),
+                                               scale = paste(dist$scale, collapse = ";"))
+                }
             }
             xml_root$children[[length(xml_root$children) + 1]] <- margin_node
         }
@@ -108,29 +133,71 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                                   coindirect = paste(as.numeric(fit$RVM$CondDistr$indirect), collapse = ";"))
 
         xml_root$children[[length(xml_root$children) + 1]] <- xmlvar_rvm
-
+    } else if (fit$type == "gp") {
+        xmlAttrs(xml_root) <- c(type = "GaussianProcess")
+        
+        gp_params <- xmlNode("GaussianProcess")
+        xmlAttrs(gp_params) <- c(kernel = fit$kernel.name,
+                                 l = fit$l,
+                                 b1 = fit$b1,
+                                 b2 = fit$b2,
+                                 x = paste(apply(fit$x, 2, paste, collapse = ","), collapse = ";"),
+                                 p = paste(fit$p, collapse=";"))
+        xml_root$children[[length(xml_root$children) + 1]] <- gp_params
     }
 
     saveXML(xml_root, outfn)
 }
 
+source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
+
+cwd <- getwd()
+setwd("D:/Research/projects/52-approximate-mc-output-paper/")
+model <- load_model("lotka-volterra/lotka_volterra_trapperonly", "output_pt_16_1000", "lotka_volterra_trapperonly.xml")
+model_t0 <- load_model("lotka-volterra/lotka_volterra_trapperonly", "output_smc_t0", "lotka_volterra_trapperonly.xml")
+setwd(cwd)
+
+bounds <- prior_bounds_all(model, q=c(0,1))
+
 #source("gmm.r")
-#source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
-
-#cwd <- getwd()
-#setwd("D:/Research/projects/52-approximate-mc-output-paper/")
-#model <- load_model("lotka-volterra/lotka_volterra_trapperonly", "output_pt_16_1000", "lotka_volterra_trapperonly.xml")
-#setwd(cwd)
-
-#bounds <- prior_bounds_all(model, q=c(0,1))
-
 #gmm <- fit.gmm(model$posterior$samples, 4)
 #gmmbic <- gmm.BIC(model$posterior$samples)
 #plot(gmmbic$BIC)
 #mdd.export.bcm(model, gmmbic$fits[[5]], "trapper_posterior_gmm5.xml")
 
 source("vine_copula.r")
-vc <- fit.vine.copula(model$posterior$samples, marginalfn = fit.marginal.ecdf)
 
+vc <- fit.vine.copula(model$posterior$samples, marginalfn = fit.marginal.ecdf)
 mdd.export.bcm(model, vc, "trapper_posterior_vc_ecdf.xml")
 
+vc_parametric <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.parametric)
+mdd.export.bcm(model, vc_parametric, "trapper_posterior_vc_parametric.xml")
+
+vc_mixture <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.mixture)
+mdd.export.bcm(model, vc_mixture, "trapper_posterior_vc_mixture.xml")
+
+source("gp.r")
+
+subset <- 1:500
+gp <- fit.gp(model$posterior$samples[subset,], model$posterior$lposterior[subset], "se", l=0.1, b1=-139, b2=-2)
+mdd.export.bcm(model, gp, "trapper_posterior_gp_se.xml")
+
+p2 <- evaluate.gp(gp, model$posterior$samples[subset,])
+plot(model$posterior$samples[subset, 6], p2, xlim = c(0, 2))
+
+testx <- matrix(NA, 600, 7)
+for (i in 1:600) {
+    testx[i,] <- gp$x[i,]
+}
+testx[, 6] <- seq(0, 2, length.out = 600)
+
+p2 <- evaluate.gp(gp, testx)
+plot(testx[, 6], p2)
+
+
+t0ix <- sample(which(!is.na(model_t0$posterior$llikelihood)), size = 200)
+x <- rbind(model$posterior$samples[subset,], model_t0$posterior$samples[t0ix,])
+p <- c(model$posterior$lposterior[subset], model_t0$posterior$lprior[t0ix] + model_t0$posterior$llikelihood[t0ix])
+
+gp <- fit.gp(x, p, "se", l=NA)
+mdd.export.bcm(model, gp, "trapper_posterior_gp_se_added.xml")

@@ -52,8 +52,8 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             marginal$dists[[i]]$min <- 0
             marginal$dists[[i]]$max <- 1
             dfit <- fitdistr(x[, i], dbeta, list(shape1 = 1, shape2 = 1), control = fitctrl)
-            marginal$dists[[i]]$shape1 <- dfit$estimate["shape1"]
-            marginal$dists[[i]]$shape2 <- dfit$estimate["shape2"]
+            marginal$dists[[i]]$shape1 <- as.numeric(dfit$estimate["shape1"])
+            marginal$dists[[i]]$shape2 <- as.numeric(dfit$estimate["shape2"])
         } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
             # [0,inf] -> gamma
             marginal$dists[[i]] <- list()
@@ -61,8 +61,8 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             rescale <- 1 / mean(x[, i])
             dfit <- fitdistr(x[, i], dgamma, list(shape = 2, scale = 1), control = fitctrl)
             dfit <- fitdistr(x[, i] * rescale, dgamma, list(shape = 2, scale = 1), control = fitctrl)
-            marginal$dists[[i]]$shape <- dfit$estimate["shape"]
-            marginal$dists[[i]]$scale <- dfit$estimate["scale"] / rescale
+            marginal$dists[[i]]$shape <- as.numeric(dfit$estimate["shape"])
+            marginal$dists[[i]]$scale <- as.numeric(dfit$estimate["scale"]) / rescale
         } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
             # [-inf,inf] -> normal
             marginal$dists[[i]] <- list()
@@ -78,8 +78,8 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             marginal$dists[[i]]$min <- a
             marginal$dists[[i]]$max <- b
             dfit <- fitdistr((x[, i] - a) / (b - a), dbeta, list(shape1 = 1, shape2 = 1), control = fitctrl)
-            marginal$dists[[i]]$shape1 <- dfit$estimate["shape1"]
-            marginal$dists[[i]]$shape2 <- dfit$estimate["shape2"]
+            marginal$dists[[i]]$shape1 <- as.numeric(dfit$estimate["shape1"])
+            marginal$dists[[i]]$shape2 <- as.numeric(dfit$estimate["shape2"])
         }
 
         marginal$dists[[i]]$name <- colnames(x)[i]

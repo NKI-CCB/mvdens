@@ -67,16 +67,18 @@
     l <- x[1]
     b1 <- x[2]
     b2 <- x[3]
+    #b1 <- 0
+    #b2 <- 0
     kxx <- result$kernel(result$x, result$x, l) + result$sigman * diag(result$n)
     
     return_value <- try(L <- chol(kxx), silent = !verbose)
     if (inherits(return_value, "try-error")) {
       return(NA)
     }
-    
+
     mean_sub <- rep(NA, length(result$p))
     for (i in 1:length(result$p)) {
-      mean_sub[i] <- result$p[i] - b1 - b2 * (result$x[i,] %*% result$x[i,])
+      mean_sub[i] <- result$p[i] - b1 - b2 * (result$xcentered[i,] %*% result$xcentered[i,])
     }
       
     p1 <- sum(backsolve(L, mean_sub, transpose = T) ^ 2)
@@ -98,6 +100,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
         result$n <- length(x)
     }
 
+    result$kernel.name <- kernel
     if (kernel == "squared.exponential" || kernel == "se") {
         result$kernel <- .kernel.squared.exponential
     } else if (kernel == "matern32") {
@@ -105,7 +108,9 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
     } else if (kernel == "matern52") {
         result$kernel <- .kernel.matern52
     }
+    result$xmean <- apply(x, 2, mean)
     result$x <- x
+    result$xcentered <- t(t(x) - result$xmean)
     result$p <- p
     result$sigman <- sigman
 
@@ -116,8 +121,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
       
         ctrl <- list()
         ctrl$fnscale <- -1.0
-        ctrl$reltol <- 1e-6
-        opt <- optim(c(1, mean(p), 1), .gp.log.marginal.likelihood, result = result, verbose = verbose, method = "Nelder-Mead", control = ctrl)
+        opt <- optim(c(1, mean(p), -1), .gp.log.marginal.likelihood, result = result, verbose = verbose, method = "Nelder-Mead", control = ctrl)
         result$l <- opt$par[1]
         result$b1 <- opt$par[2]
         result$b2 <- opt$par[3]
@@ -127,14 +131,15 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
         result$b2 <- b2
     }
 
-    result$kxx <- result$kernel(x, x, result$l) + 1e-12 * diag(result$n)
-    result$L <- chol(result$kxx)
+    result$kxx <- result$kernel(result$x, result$x, result$l) + sigman * diag(result$n)
+    L <- chol(result$kxx)
     
     mean_sub <- rep(NA, length(result$p))
     for (i in 1:length(result$p)) {
-      mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$x[i,] %*% result$x[i,])
+        mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$xcentered[i,] %*% result$xcentered[i,])
+        #mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$x[i,] %*% result$x[i,])
     }
-    result$alpha <- backsolve(result$L, backsolve(result$L, mean_sub, transpose = TRUE))
+    result$alpha <- backsolve(L, backsolve(L, mean_sub, transpose = TRUE))
 
     return(result)
 }
@@ -142,11 +147,14 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
 evaluate.gp <- function(fit, x) {
     stopifnot(fit$type == "gp")
 
+    xcenter <- t(t(x) - gp$xmean)
+    #xcenter <- x
+
     kxsx <- fit$kernel(x, fit$x, fit$l)
     f <- kxsx %*% fit$alpha
 
     for (i in 1:nrow(x)) {
-        f[i] <- f[i] + fit$b1 + fit$b2 * (x[i,] %*% x[i,])
+        f[i] <- f[i] + fit$b1 + fit$b2 * (xcenter[i,] %*% xcenter[i,])
     }
 
     return(f)

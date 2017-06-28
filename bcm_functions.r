@@ -96,7 +96,7 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                                            x = paste(sort(fit$marginal$x[[i]]), collapse = ";"))
             } else if (fit$marginal$type == "parametric") {
                 dist <- fit$marginal$dists[[i]]
-                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = "parametric")
+                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = dist$type)
                 if (dist$type == "normal") {
                     xmlAttrs(margin_node) <- c(mu = dist$mean, sigma = dist$sd)
                 } else if (dist$type == "beta") {
@@ -106,7 +106,7 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                 }
             } else if (fit$marginal$type == "mixture") {
                 dist <- fit$marginal$dists[[i]]
-                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = "mixture", p = paste(dist$p, collapse = ";"))
+                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = dist$type, p = paste(dist$p, collapse = ";"))
                 if (dist$type == "normal") {
                     xmlAttrs(margin_node) <- c(mu = paste(dist$mean, collapse = ";"),
                                                sigma = paste(dist$sd, collapse = ";"))
@@ -195,9 +195,23 @@ p2 <- evaluate.gp(gp, testx)
 plot(testx[, 6], p2)
 
 
-t0ix <- sample(which(!is.na(model_t0$posterior$llikelihood)), size = 200)
+t0ix <- sample(which(!is.infinite(model_t0$posterior$llikelihood)), size = 200)
 x <- rbind(model$posterior$samples[subset,], model_t0$posterior$samples[t0ix,])
 p <- c(model$posterior$lposterior[subset], model_t0$posterior$lprior[t0ix] + model_t0$posterior$llikelihood[t0ix])
 
 gp <- fit.gp(x, p, "se", l=NA)
 mdd.export.bcm(model, gp, "trapper_posterior_gp_se_added.xml")
+
+gpfull <- fit.gp(model$posterior$samples,
+                 model$posterior$lposterior,
+                 "se",
+                 l = gp$l,
+                 b1 = gp$b1,
+                 b2 = gp$b2)
+gpfull <- fit.gp(rbind(model$posterior$samples, model_t0$posterior$samples[t0ix,]),
+                 c(model$posterior$lposterior, model_t0$posterior$lprior[t0ix] + model_t0$posterior$llikelihood[t0ix]),
+                 "se",
+                 l = gp$l,
+                 b1 = gp$b1,
+                 b2 = gp$b2)
+mdd.export.bcm(model, gpfull, "trapper_posterior_gp_se.xml")

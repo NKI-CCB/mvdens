@@ -3,8 +3,12 @@
 fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T) {
     marginal <- list()
     marginal$type <- "ecdf"
-    marginal$ecdfs <- apply(x, 2, ecdf)
 
+    if (!is.matrix(x)) {
+        x <- as.matrix(x)
+    }
+
+    marginal$ecdfs <- apply(x, 2, ecdf)
     marginal$varnames <- colnames(x)
     marginal$x <- list()
     marginal$correction_factor <- rep(1, ncol(x))
@@ -196,6 +200,9 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
 }
 
 transform.marginals <- function(x, marginal) {
+    if (!is.matrix(x)) {
+        x <- as.matrix(x)
+    }
     transformed <- matrix(nrow = nrow(x), ncol = ncol(x))
 
     if (marginal$type == "ecdf") {
@@ -230,6 +237,25 @@ transform.marginals <- function(x, marginal) {
                 }
             }
         }
+    }
+
+    return(transformed)
+}
+
+reverse.transform.marginals <- function(transformed, marginal)
+{
+    if (!is.matrix(transformed)) {
+        transformed <- as.matrix(transformed)
+    }
+    x <- matrix(nrow = nrow(transformed), ncol = ncol(transformed))
+
+    if (marginal$type == "ecdf") {
+        for (i in 1:ncol(x)) {
+            x[, i] <- quantile()
+            1e-10 + (1 - 2e-10) * marginal$ecdfs[[i]](x[, i])
+        }
+    } else if (marginal$type == "parametric") {
+    } else if (marginal$type == "mixture") {
     }
 
     return(transformed)

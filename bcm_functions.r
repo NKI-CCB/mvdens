@@ -123,14 +123,15 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
             xml_root$children[[length(xml_root$children) + 1]] <- margin_node
         }
         xmlvar_rvm <- xmlNode("RVineCopula")
-        xmlAttrs(xmlvar_rvm) <- c(names = paste(fit$RVM$names, collapse = ";"),
-                                  matrix = paste(fit$RVM$Matrix, collapse = ";"),
-                                  family = paste(fit$RVM$family, collapse = ";"),
-                                  par = paste(fit$RVM$par, collapse = ";"),
-                                  par2 = paste(fit$RVM$par2, collapse = ";"),
-                                  maxmat = paste(fit$RVM$MaxMat, collapse = ";"),
-                                  codirect = paste(as.numeric(fit$RVM$CondDistr$direct), collapse = ";"),
-                                  coindirect = paste(as.numeric(fit$RVM$CondDistr$indirect), collapse = ";"))
+        normalized_RVM <- RVineMatrixNormalize(fit$RVM)
+        xmlAttrs(xmlvar_rvm) <- c(names = paste(normalized_RVM$names, collapse = ";"),
+                                  matrix = paste(normalized_RVM$Matrix, collapse = ";"),
+                                  family = paste(normalized_RVM$family, collapse = ";"),
+                                  par = paste(normalized_RVM$par, collapse = ";"),
+                                  par2 = paste(normalized_RVM$par2, collapse = ";"),
+                                  maxmat = paste(normalized_RVM$MaxMat, collapse = ";"),
+                                  codirect = paste(as.numeric(normalized_RVM$CondDistr$direct), collapse = ";"),
+                                  coindirect = paste(as.numeric(normalized_RVM$CondDistr$indirect), collapse = ";"))
 
         xml_root$children[[length(xml_root$children) + 1]] <- xmlvar_rvm
     } else if (fit$type == "gp") {
@@ -159,11 +160,11 @@ setwd(cwd)
 
 bounds <- prior_bounds_all(model, q=c(0,1))
 
-#source("gmm.r")
-#gmm <- fit.gmm(model$posterior$samples, 4)
-#gmmbic <- gmm.BIC(model$posterior$samples)
-#plot(gmmbic$BIC)
-#mdd.export.bcm(model, gmmbic$fits[[5]], "trapper_posterior_gmm5.xml")
+source("gmm.r")
+gmm <- fit.gmm(model$posterior$samples, 4)
+gmmbic <- gmm.BIC(model$posterior$samples)
+plot(gmmbic$BIC)
+mdd.export.bcm(model, gmmbic$fits[[5]], "trapper_posterior_gmm5.xml")
 
 source("vine_copula.r")
 

@@ -122,13 +122,13 @@ plot(log(fstar), log(ftrue))
 
 # Squared x mean
 
-x <- log(rgamma(500, shape = 2, rate = 5))
+x <- c(log(rgamma(500, shape = 2, rate = 5)))
 plot(x)
 plot(density(x, bw = "SJ"))
 
 p <- dgamma(exp(x), 2, 5, log = T)
 
-plot(x, p)
+plot(x, p, ylim=c(-6,2))
 plot(x - mean(x), p)
 
 cx <- x - mean(x)
@@ -138,13 +138,13 @@ plot(cx, p - cx*cx)
 source("gp.r")
 source("pdf.r")
 
-gp <- fit.gp(cx, p + cx*cx, kernel = "matern32")
+gp <- fit.gp(x, p, kernel="se", l=c(0.01, 10), b1=min(p)-3, b2=0, verbose=T)
 
 x2 <- seq(-8, 8, length.out = 100)
-p2 <- mdd.pdf(gp, x2) - x2*x2
+p2 <- mdd.pdf(gp, x2)
 
 plot(x2, p2, ylim=c(-10,2), typ="l")
-points(cx, p)
+points(x, p)
 
 
 

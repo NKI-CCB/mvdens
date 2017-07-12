@@ -63,12 +63,7 @@
     return(sigma)
 }
 
-.gp.log.marginal.likelihood <- function(x, result, verbose) {
-    l <- x[1]
-    b1 <- x[2]
-    b2 <- x[3]
-    #b1 <- 0
-    #b2 <- 0
+.gp.log.marginal.likelihood <- function(l, b1, b2, result, verbose) {
     kxx <- result$kernel(result$x, result$x, l) + result$sigman * diag(result$n)
     
     return_value <- try(L <- chol(kxx), silent = !verbose)
@@ -90,14 +85,29 @@
     return(logml)
 }
 
-fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
+.gp.log.marginal.likelihood.optiml <- function(x, result, verbose) {
+    return(.gp.log.marginal.likelihood(x, result$b1, result$b2, result, verbose))
+}
+.gp.log.marginal.likelihood.optimb1 <- function(x, result, verbose) {
+    return(.gp.log.marginal.likelihood(result$l, x, result$b2, result, verbose))
+}
+.gp.log.marginal.likelihood.optimb2 <- function(x, result, verbose) {
+    return(.gp.log.marginal.likelihood(result$l, result$b1, x, result, verbose))
+}
+.gp.log.marginal.likelihood.optim3 <- function(x, result, verbose) {
+    return(.gp.log.marginal.likelihood(x[1], x[2], x[3], result, verbose))
+}
+
+fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=F) {
     result <- list()
     result$type <- "gp"
 
     if (is.matrix(x)) {
         result$n <- nrow(x)
+        result$xmean <- apply(x, 2, mean)
     } else {
         result$n <- length(x)
+        result$xmean <- mean(x)
     }
 
     result$kernel.name <- kernel
@@ -108,36 +118,48 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
     } else if (kernel == "matern52") {
         result$kernel <- .kernel.matern52
     }
-    result$xmean <- apply(x, 2, mean)
     result$x <- x
     result$xcentered <- t(t(x) - result$xmean)
     result$p <- p
     result$sigman <- sigman
 
-    if (is.na(l) || is.na(b1) || is.na(b2)) {
-        # Kernel length range, find optimal marginal likelihood
-        #opt <- optimize(.gp.log.marginal.likelihood, l, maximum = T, result=result, verbose=verbose)
-        #result$l <- opt$maximum
-      
+    num_parameters_range <- (length(l) > 1) + (length(b1) > 1) + (length(b2) > 1)
+
+    if (num_parameters_range == 0) {
+        result$l <- l
+        result$b1 <- b1
+        result$b2 <- b2
+    } else if (num_parameters_range == 1) {
+        result$l <- l
+        result$b1 <- b1
+        result$b2 <- b2
+        if (length(l) > 1) {
+            opt <- optimize(.gp.log.marginal.likelihood.optiml, l, maximum = T, result = result, verbose = verbose)
+            result$l <- opt$maximum
+        } else if (length(b1) > 1) {
+            opt <- optimize(.gp.log.marginal.likelihood.optimb1, b1, maximum = T, result = result, verbose = verbose)
+            result$b1 <- opt$maximum
+        } else if (length(b1) > 1) {
+            opt <- optimize(.gp.log.marginal.likelihood.optimb2, b2, maximum = T, result = result, verbose = verbose)
+            result$b2 <- opt$maximum
+        }
+    } else if (num_parameters_range == 3) {
         ctrl <- list()
         ctrl$fnscale <- -1.0
-        opt <- optim(c(1, mean(p), -1), .gp.log.marginal.likelihood, result = result, verbose = verbose, method = "Nelder-Mead", control = ctrl)
+        opt <- optim(c(1, mean(p), -1), .gp.log.marginal.likelihood.optim3, result = result, verbose = verbose, method = "Nelder-Mead", control = ctrl)
         result$l <- opt$par[1]
         result$b1 <- opt$par[2]
         result$b2 <- opt$par[3]
     } else {
-        result$l <- l
-        result$b1 <- b1
-        result$b2 <- b2
+        stop("Only implemented optimizing 1 parameter or all 3")
     }
 
-    result$kxx <- result$kernel(result$x, result$x, result$l) + sigman * diag(result$n)
+    result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
     L <- chol(result$kxx)
     
     mean_sub <- rep(NA, length(result$p))
     for (i in 1:length(result$p)) {
         mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$xcentered[i,] %*% result$xcentered[i,])
-        #mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$x[i,] %*% result$x[i,])
     }
     result$alpha <- backsolve(L, backsolve(L, mean_sub, transpose = TRUE))
 
@@ -147,13 +169,10 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=T) {
 evaluate.gp <- function(fit, x) {
     stopifnot(fit$type == "gp")
 
-    xcenter <- t(t(x) - gp$xmean)
-    #xcenter <- x
-
+    xcenter <- t(t(x) - fit$xmean)
     kxsx <- fit$kernel(x, fit$x, fit$l)
     f <- kxsx %*% fit$alpha
-
-    for (i in 1:nrow(x)) {
+    for (i in 1:nrow(xcenter)) {
         f[i] <- f[i] + fit$b1 + fit$b2 * (xcenter[i,] %*% xcenter[i,])
     }
 

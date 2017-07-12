@@ -1,6 +1,4 @@
-library(beeswarm)
-library(ellipse)
-
+source("kde.r")
 source("gmm.r")
 source("pdf.r")
 source("vine_copula.r")
@@ -50,6 +48,12 @@ source("transform.r")
   return(retval)
 }
 
+.train.kde <- function(x.train, p.train, ...) {
+    return(fit.kde(x.train, ...))
+}
+.train.kde.transformed <- function(x.train, p.train, ...) {
+    return(fit.kde.transformed(x.train, ...))
+}
 .train.gmm <- function(x.train, p.train, ...) {
   return(fit.gmm(x.train, ...))
 }
@@ -74,26 +78,30 @@ source("transform.r")
 
 mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
 {
-  cv <- list()
-  cv$reordering <- sample.int(nrow(x))
-  holdout_size <- nrow(x) / nfolds
+    cv <- list()
+    cv$reordering <- sample.int(nrow(x))
+    holdout_size <- nrow(x) / nfolds
   
-  train.function <- NULL
-  if (type == "gmm") {
-    train.function <- .train.gmm
-  } else if (type == "gmm.transformed") {
-    train.function <- .train.gmm.transformed
-  } else if (type == "gmm.truncated") {
-    train.function <- .train.gmm.truncated
-  } else if (type == "gp") {
-    train.function <- .train.gp
-  } else if (type == "vc.ecdf") {
-    train.function <- .train.vc.ecdf
-  } else if (type == "vc.parametric") {
-      train.function <- .train.vc.parametric
-  } else if (type == "vc.mixture") {
-      train.function <- .train.vc.mixture
-  }
+    train.function <- NULL
+    if (type == "kde") {
+        train.function <- .train.kde
+    } else if (type == "kde.transformed") {
+        train.function <- .train.kde.transformed
+    } else if (type == "gmm") {
+        train.function <- .train.gmm
+    } else if (type == "gmm.transformed") {
+        train.function <- .train.gmm.transformed
+    } else if (type == "gmm.truncated") {
+        train.function <- .train.gmm.truncated
+    } else if (type == "gp") {
+        train.function <- .train.gp
+    } else if (type == "vc.ecdf") {
+        train.function <- .train.vc.ecdf
+    } else if (type == "vc.parametric") {
+        train.function <- .train.vc.parametric
+    } else if (type == "vc.mixture") {
+        train.function <- .train.vc.mixture
+    }
   
   if (parallel) {
     require(foreach)
@@ -131,6 +139,8 @@ mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
 
 cv.compare.plots <- function(cv_list)
 {
+    require(beeswarm)
+
     mse <- lapply(cv_list, function(x) { log(x$MSE) })
     beeswarm(mse, ylab = "log mean squared error", las = 2)
 

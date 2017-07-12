@@ -179,28 +179,32 @@ mdd.export.bcm(model, vc_mixture, "trapper_posterior_vc_mixture.xml")
 
 source("gp.r")
 
-subset <- 1:500
-gp <- fit.gp(model$posterior$samples[subset,], model$posterior$lposterior[subset], "se", l=0.1, b1=-139, b2=-2)
+subset <- 1:1000
+gp <- fit.gp(model$posterior$samples[subset,], model$posterior$lposterior[subset], "se", l = c(0.01, 10), b1 = min(model$posterior$lposterior[subset]) - 5, b2 = 0, verbose=T)
 mdd.export.bcm(model, gp, "trapper_posterior_gp_se.xml")
 
 p2 <- evaluate.gp(gp, model$posterior$samples[subset,])
 plot(model$posterior$samples[subset, 6], p2, xlim = c(0, 2))
 
-testx <- matrix(NA, 600, 7)
-for (i in 1:600) {
+testx <- matrix(NA, 500, 9)
+for (i in 1:500) {
     testx[i,] <- gp$x[i,]
 }
-testx[, 6] <- seq(0, 2, length.out = 600)
+testx[, 6] <- seq(0, 2, length.out = 500)
 
 p2 <- evaluate.gp(gp, testx)
 plot(testx[, 6], p2)
 
 
-t0ix <- sample(which(!is.infinite(model_t0$posterior$llikelihood)), size = 200)
+validate <- evaluate.gp(gp, model$posterior$samples[501:600,])
+plot(model$posterior$lposterior[501:600], validate)
+
+t0ix <- sample(which(!is.infinite(model_t0$posterior$llikelihood)), size = 100)
 x <- rbind(model$posterior$samples[subset,], model_t0$posterior$samples[t0ix,])
 p <- c(model$posterior$lposterior[subset], model_t0$posterior$lprior[t0ix] + model_t0$posterior$llikelihood[t0ix])
 
-gp <- fit.gp(x, p, "se", l=NA)
+gp <- fit.gp(x, p, "se", l=c(0.01, 10), b1=min(p), b2=0, sigman=1e-10, verbose=T)
+gp <- fit.gp(x, p, "se", l = c(0.01, 10), b1 = c(-4000, 0), b2 = c(-10,0), sigman = 1e-10, verbose = T)
 mdd.export.bcm(model, gp, "trapper_posterior_gp_se_added.xml")
 
 gpfull <- fit.gp(model$posterior$samples,

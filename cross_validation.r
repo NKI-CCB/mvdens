@@ -55,13 +55,19 @@ source("transform.r")
     return(fit.kde.transformed(x.train, ...))
 }
 .train.gmm <- function(x.train, p.train, ...) {
-  return(fit.gmm(x.train, ...))
+    bic <- gmm.BIC(x.train, ...)
+    best <- which.min(bic$BIC)
+    return(bic$fits[[best]])
 }
 .train.gmm.transformed <- function(x.train, p.train, ...) {
-    return(fit.gmm.transformed(x.train, ...))
+    bic <- gmm.transformed.BIC(x.train, ...)
+    best <- which.min(bic$BIC)
+    return(bic$fits[[best]])
 }
 .train.gmm.truncated <- function(x.train, p.train, ...) {
-  return(fit.gmm.truncated(x.train, ...))
+    bic <- gmm.truncated.BIC(x.train, ...)
+    best <- which.min(bic$BIC)
+    return(bic$fits[[best]])
 }
 .train.gp <- function(x.train, p.train, ...) {
     return(fit.gp(x=x.train, p=p.train, ...))

@@ -1,5 +1,3 @@
-
-
 fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T) {
     marginal <- list()
     marginal$type <- "ecdf"
@@ -13,9 +11,9 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
     marginal$x <- list()
     marginal$correction_factor <- rep(1, ncol(x))
     for (i in 1:ncol(x)) {
-        marginal$x[[i]] <- x[,i]
+        marginal$x[[i]] <- x[, i]
         if (reflect_bounds) {
-            if (bounds[i,1] != -Inf) {
+            if (bounds[i, 1] != -Inf) {
                 reflected <- bounds[i, 1] - (x[, i] - bounds[i, 1])
                 marginal$x[[i]] <- c(marginal$x[[i]], reflected)
                 marginal$correction_factor[i] <- marginal$correction_factor[i] + 1
@@ -34,7 +32,7 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
         marginal$bw[i] <- bw.SJ(marginal$x[[i]], lower = 1e-6 * hmax, upper = hmax)
     }
 
-    return(structure(marginal, class="mdd.marginal"))
+    return(structure(marginal, class = "mdd.marginal"))
 }
 
 fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
@@ -156,14 +154,14 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             ms[[1]]$lambda <- 1
             ms[[1]]$mu <- mean(x[, i])
             ms[[1]]$sigma <- sd(x[, i])
-            BIC[1] <- log(nrow(x)) * 2 - 2 * sum(dnorm(x[,i], ms[[1]]$mu, ms[[1]]$sigma, log = T))
+            BIC[1] <- log(nrow(x)) * 2 - 2 * sum(dnorm(x[, i], ms[[1]]$mu, ms[[1]]$sigma, log = T))
             for (k in 2:3) {
-                ms[[k]] <- normalmixEM(x[,i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)
+                ms[[k]] <- normalmixEM(x[, i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)
                 BIC[k] <- log(nrow(x)) * 2 * k - 2 * ms[[k]]$loglik
             }
             k <- which.min(BIC)
             m <- ms[[k]]
-            
+
             marginal$dists[[i]]$p <- m$lambda
             marginal$dists[[i]]$mu <- m$mu
             marginal$dists[[i]]$sigma <- m$sigma
@@ -199,6 +197,97 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(structure(marginal, class = "mdd.marginal"))
 }
 
+.fit.pareto.tail <- function(x, u) {
+    exceedances <- x[x > u]
+    excess <- exceedances - u
+    Nu <- length(excess)
+    xbar <- mean(excess)
+
+    s2 <- var(excess)
+    xi0 <- -0.5 * (((xbar * xbar) / s2) - 1)
+    beta0 <- 0.5 * xbar * (((xbar * xbar) / s2) + 1)
+    theta <- c(xi0, beta0)
+
+    negloglik <- function(theta, tmp) {
+        cat(theta, "\n")
+        xi <- theta[1]
+        beta <- theta[2]
+        cond1 <- beta <= 0
+        cond2 <- (xi <= 0) && (max(tmp) > (-beta / xi))
+        if (cond1 || cond2) {
+            f <- 1e+06
+        } else {
+            y <- logb(1 + (xi * tmp) / beta)
+            y <- y / xi
+            f <- length(tmp) * logb(beta) + (1 + xi) * sum(y)
+        }
+        f
+    }
+
+    fit <- optim(theta, negloglik, tmp = excess)
+    #fit <- optim(theta, negloglik, lower = c(-Inf, 1e-6), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
+    #fit <- optimize(negloglikul, lower=0, upper=100, tmp = excess)
+    #return(c(-upperlimit / fit$minimum, fit$minimum / upperlimit))
+
+    result <- list()
+    result$xi <- fit$par[1]
+    result$beta <- fit$par[2]
+    return(result)
+}
+
+.pareto.cdf <- function(x, u, xi, beta) {
+    z <- (x - u) / beta
+    return(1 - (1 + xi * z) ^ (-1/xi))
+}
+
+fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T, pareto_threshold = 0.1, ecdf_bounds_threshold = 1e-3) {
+    marginal <- list()
+    marginal$type <- "ecdf.pareto"
+
+    if (!is.matrix(x)) {
+        x <- as.matrix(x)
+    }
+
+    marginal$ecdf <- fit.marginal.ecdf(x, bounds, reflect_bounds)
+
+    use.pareto.tail <- matrix(T, ncol(x), 2)
+    for (i in 1:ncol(x)) {
+        if (bounds[i, 1] != -Inf) {
+            dp <- sum(dnorm(bounds[i, 1], marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x[[i]])
+            use.pareto.tail[i, 1] <- dp < ecdf_bounds_threshold
+        }
+        if (bounds[i, 2] != Inf) {
+            dp <- sum(dnorm(bounds[i, 2], marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x[[i]])
+            use.pareto.tail[i, 2] <- dp < ecdf_bounds_threshold
+        }
+    }
+
+    marginal$lower.tails <- list(rep(NULL, ncol(x)))
+    marginal$upper.tails <- list(rep(NULL, ncol(x)))
+    for (i in 1:ncol(x)) {
+        if (use.pareto.tail[i, 1]) {
+            u <- quantile(x[, i], pareto_threshold)
+            marginal$lower.tails[[i]] <- .fit.pareto.tail(-x[, i], - u)
+            marginal$lower.tails[[i]]$u <- u
+        }
+        if (use.pareto.tail[i, 2]) {
+            u <- quantile(x[, i], 1 - pareto_threshold)
+            marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], quantile(x[, i], u))
+            marginal$lower.tails[[i]]$u <- u
+        }
+    }
+
+    return(marginal)
+}
+
+fit <- fit.marginal.ecdf.pareto(x, bounds)
+xp <- cbind(seq(0, 1, length.out = 100), seq(-1, 1, length.out = 100))
+yp <- marginal.pdf(fit$ecdf, xp)
+plot(xp[, 1], exp(yp[, 1]))
+plot(xp[, 2], exp(yp[, 2]))
+
 transform.marginals <- function(x, marginal) {
     if (!is.matrix(x)) {
         x <- as.matrix(x)
@@ -207,7 +296,22 @@ transform.marginals <- function(x, marginal) {
 
     if (marginal$type == "ecdf") {
         for (i in 1:ncol(x)) {
-            transformed[, i] <- 1e-10 + (1-2e-10) * marginal$ecdfs[[i]](x[, i])
+            transformed[, i] <- 1e-10 + (1 - 2e-10) * marginal$ecdfs[[i]](x[, i])
+        }
+    } else if (marginal$type == "ecdf.pareto") {
+        for (i in 1:ncol(x)) {
+            is_body <- rep(T, nrow(x))
+            if (!is.null(marginal$lower.tails[[i]])) {
+                is_tail <- x[, i] < marginal$lower.tails[[i]]$u
+                transformed[is_tail, i] <- .pareto.cdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta)
+                is_body[is_tail] <- F
+            }
+            if (!is.null(marginal$upper.tails[[i]])) {
+                is_tail <- x[, i] > marginal$upper.tails[[i]]$u
+                transformed[is_tail, i] <- .pareto.cdf(x[is_tail, i], marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta)
+                is_body[is_tail] <- F
+            }
+            transformed[is_body, i] <- 1e-10 + (1 - 2e-10) * marginal$ecdfs[[i]](x[is_body, i])
         }
     } else if (marginal$type == "parametric") {
         for (i in 1:ncol(x)) {
@@ -237,51 +341,54 @@ transform.marginals <- function(x, marginal) {
                 }
             }
         }
+    } else {
+        stop("Unknown marginal type")
     }
 
     return(transformed)
 }
 
-reverse.transform.marginals <- function(transformed, marginal)
-{
+reverse.transform.marginals <- function(transformed, marginal) {
     if (!is.matrix(transformed)) {
         transformed <- as.matrix(transformed)
     }
     x <- matrix(nrow = nrow(transformed), ncol = ncol(transformed))
 
     if (marginal$type == "ecdf") {
-        for (i in 1:ncol(x)) {
-            x[, i] <- quantile()
-            1e-10 + (1 - 2e-10) * marginal$ecdfs[[i]](x[, i])
-        }
+    } else if (marginal$type == "ecdf.pareto") {
     } else if (marginal$type == "parametric") {
     } else if (marginal$type == "mixture") {
+    } else {
+        stop("Unknown marginal type")
     }
 
     return(transformed)
 }
 
-marginal.correct.p <- function(marginal, x, p, log = T) {
+marginal.pdf <- function(marginal, x, log = T) {
     stopifnot(log)
+
+    p <- matrix(NA, nrow(x), ncol(x))
 
     if (marginal$type == "ecdf") {
         stopifnot(ncol(x) == length(marginal$bw))
         for (i in 1:ncol(x)) {
             for (j in 1:nrow(x)) {
                 dp <- sum(dnorm(x[j, i], marginal$x[[i]], marginal$bw[i])) * marginal$correction_factor[i]
-                p[j] <- p[j] + log(dp) - log(length(marginal$x[[i]]))
+                p[j, i] <- log(dp) - log(length(marginal$x[[i]]))
             }
         }
+    } else if (marginal$type == "ecdf.pareto") {
     } else if (marginal$type == "parametric") {
         for (i in 1:ncol(x)) {
             if (marginal$dists[[i]]$type == "beta") {
                 a <- marginal$dists[[i]]$min
                 b <- marginal$dists[[i]]$max
-                p <- p + dbeta((x[, i] - a) / (b - a), marginal$dists[[i]]$shape1, marginal$dists[[i]]$shape2, log = T) - log(b - a)
+                p[, i] <- dbeta((x[, i] - a) / (b - a), marginal$dists[[i]]$shape1, marginal$dists[[i]]$shape2, log = T) - log(b - a)
             } else if (marginal$dists[[i]]$type == "normal") {
-                p <- p + dnorm(x[, i], marginal$dists[[i]]$mean, marginal$dists[[i]]$sd, log = T)
+                p[, i] <- dnorm(x[, i], marginal$dists[[i]]$mean, marginal$dists[[i]]$sd, log = T)
             } else if (marginal$dists[[i]]$type == "gamma") {
-                p <- p + dgamma(x[, i], shape = marginal$dists[[i]]$shape, scale = marginal$dists[[i]]$scale, log = T)
+                p[, i] <- dgamma(x[, i], shape = marginal$dists[[i]]$shape, scale = marginal$dists[[i]]$scale, log = T)
             }
         }
     } else if (marginal$type == "mixture") {
@@ -292,23 +399,30 @@ marginal.correct.p <- function(marginal, x, p, log = T) {
                 for (j in 1:length(margin$p)) {
                     dp <- dp + margin$p[j] * dbeta((x[, i] - margin$min) / (margin$max - margin$min), margin$a[j], margin$b[j])
                 }
-                p <- p + log(dp) - log(margin$max - margin$min)
+                p[j, i] <- log(dp) - log(margin$max - margin$min)
             } else if (margin$type == "normal") {
                 for (j in 1:length(margin$p)) {
                     dp <- dp + margin$p[j] * dnorm(x[, i], margin$mu[j], margin$sigma[j])
                 }
-                p <- p + log(dp)
+                p[j, i] <- log(dp)
             } else if (margin$type == "gamma") {
                 for (j in 1:length(margin$p)) {
                     dp <- dp + margin$p[j] * dgamma(x[, i], shape = margin$shape[j], scale = margin$scale[j])
                 }
-                p <- p + log(dp)
+                p[j, i] <- log(dp)
             }
         }
     } else {
         stop("Unknown marginal type")
     }
+    return(p)
+}
 
+marginal.correct.p <- function(marginal, x, p, log = T) {
+    mp <- marginal.pdf(marginal, x, log)
+    for (i in 1:ncol(x)) {
+        p <- p + mp[, i]
+    }
     return(p)
 }
 

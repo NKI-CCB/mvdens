@@ -3,8 +3,8 @@ library(mvtnorm)
 fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ)
 {
     n <- nrow(x)
-    p <- ncol(x)
-    factor <- (4 / (n * (p + 2))) ^ (1 / (p + 4))
+    d <- ncol(x)
+    factor <- n ^ (-1 / (d+4))
     bw <- adjust * factor * apply(x, 2, bw.SJ)
 
     result <- list()

@@ -66,7 +66,16 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
     xml_root <- .write_variables_to_xml(bcm.model, xml_root)
     xml_root <- .write_bounds_to_xml(bcm.model, xml_root)
 
-    if (fit$type == "gmm") {
+    if (fit$type == "kde") {
+        xmlAttrs(xml_root) <- c(type = "KDE")
+        for (i in 1:fit$K) {
+            comp <- xmlNode("component")
+            xmlAttrs(comp) <- c(weight = fit$proportions[i],
+                      mean = paste(fit$centers[i,], collapse = ";"),
+                      covariance = paste(apply(fit$covariances[[i]], 2, paste, collapse = ","), collapse = ";"))
+            xml_root$children[[length(xml_root$children) + 1]] <- comp
+        }
+    } else if (fit$type == "gmm") {
         xmlAttrs(xml_root) <- c(type = "GMM")
         for (i in 1:fit$K) {
             comp <- xmlNode("component")

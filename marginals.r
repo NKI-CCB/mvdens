@@ -282,12 +282,6 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
     return(marginal)
 }
 
-fit <- fit.marginal.ecdf.pareto(x, bounds)
-xp <- cbind(seq(0, 1, length.out = 100), seq(-1, 1, length.out = 100))
-yp <- marginal.pdf(fit$ecdf, xp)
-plot(xp[, 1], exp(yp[, 1]))
-plot(xp[, 2], exp(yp[, 2]))
-
 transform.marginals <- function(x, marginal) {
     if (!is.matrix(x)) {
         x <- as.matrix(x)

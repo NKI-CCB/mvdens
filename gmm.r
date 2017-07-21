@@ -102,7 +102,11 @@ source("utils.r")
                 break
             }
 
-            if (any(apply(fit$weights, 2, sum) == 0)) {
+            if (any(is.na(fit$weights))) {
+                singular <- T
+                break
+            }
+            if (any(apply(fit$weights, 2, sum, na.rm=T) == 0)) {
                 singular <- T
                 break
             }

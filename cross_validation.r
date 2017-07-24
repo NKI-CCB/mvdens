@@ -82,11 +82,9 @@ source("transform.r")
     return(fit.vine.copula(x.train, fit.marginal.mixture, ...))
 }
 
-mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
+mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, parallel = F, ...)
 {
     cv <- list()
-    cv$reordering <- sample.int(nrow(x))
-    holdout_size <- nrow(x) / nfolds
   
     train.function <- NULL
     if (type == "kde") {
@@ -108,32 +106,59 @@ mdd.cv <- function(x, p, type, nfolds = 10, parallel = F, ...)
     } else if (type == "vc.mixture") {
         train.function <- .train.vc.mixture
     }
-  
-  if (parallel) {
-    require(foreach)
-      cv$estimates <- foreach(i = 1:nfolds) %dopar% {
-        test_ix <- cv$reordering[(i-1)*holdout_size + 1:holdout_size]
-        train_ix <- setdiff(cv$reordering, test_ix)
-        return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...))
-      }
-  } else {
-    cv$estimates <- list()
-    for (i in 1:nfolds) {
-      cat(i, "\n")
-      test_ix <- cv$reordering[(i-1)*holdout_size + 1:holdout_size]
-      train_ix <- setdiff(cv$reordering, test_ix)
-      cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...)
+
+    if (is.null(mcfolds)) {
+        reordering <- sample.int(nrow(x))
+        holdout_size <- nrow(x) / nfolds
+
+        if (parallel) {
+            require(foreach)
+            cv$estimates <- foreach(i = 1:nfolds) %dopar% {
+                test_ix <- reordering[(i - 1) * holdout_size + 1:holdout_size]
+                train_ix <- setdiff(reordering, test_ix)
+                return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...))
+            }
+        } else {
+            cv$estimates <- list()
+            for (i in 1:nfolds) {
+                cat(i, "\n")
+                test_ix <- reordering[(i - 1) * holdout_size + 1:holdout_size]
+                train_ix <- setdiff(reordering, test_ix)
+                cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...)
+            }
+        }
+
+        cv$predicted <- rep(NA, nrow(x))
+        for (i in 1:nfolds) {
+            test_ix <- reordering[(i - 1) * holdout_size + 1:holdout_size]
+            cv$predicted[test_ix] <- cv$estimates[[i]]$predicted
+        }
+    } else {
+        if (parallel) {
+            require(foreach)
+            cv$estimates <- foreach(i = 1:mcfolds) %dopar% {
+                test_ix <- sample(nrow(x), mcsize)
+                train_ix <- setdiff(1:nrow(x), test_ix)
+                return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...))
+            }
+        } else {
+            cv$estimates <- list()
+            for (i in 1:mcfolds) {
+                cat(i, "\n")
+                test_ix <- sample(nrow(x), mcsize)
+                train_ix <- setdiff(1:nrow(x), test_ix)
+                cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...)
+            }
+        }
     }
-  }
-  
-  cv$predicted <- rep(NA, nrow(x))
-  cv$MSEabs <- rep(NA, nfolds)
-  cv$MSE <- rep(NA, nfolds)
-  cv$cor_pearson <- rep(NA, nfolds)
-  cv$cor_spearman <- rep(NA, nfolds)
-    for (i in 1:nfolds) {
-        test_ix <- cv$reordering[(i - 1) * holdout_size + 1:holdout_size]
-        cv$predicted[test_ix] <- cv$estimates[[i]]$predicted
+
+    ns <- length(cv$estimates)
+
+    cv$MSEabs <- rep(NA, ns)
+    cv$MSE <- rep(NA, ns)
+    cv$cor_pearson <- rep(NA, ns)
+    cv$cor_spearman <- rep(NA, ns)
+    for (i in 1:ns) {
         cv$MSEabs[i] <- cv$estimates[[i]]$MSEabs
         cv$MSE[i] <- cv$estimates[[i]]$MSE
         cv$cor_pearson[i] <- cv$estimates[[i]]$cor_pearson

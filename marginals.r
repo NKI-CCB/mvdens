@@ -393,17 +393,17 @@ marginal.pdf <- function(marginal, x, log = T) {
                 for (j in 1:length(margin$p)) {
                     dp <- dp + margin$p[j] * dbeta((x[, i] - margin$min) / (margin$max - margin$min), margin$a[j], margin$b[j])
                 }
-                p[j, i] <- log(dp) - log(margin$max - margin$min)
+                p[, i] <- log(dp) - log(margin$max - margin$min)
             } else if (margin$type == "normal") {
                 for (j in 1:length(margin$p)) {
                     dp <- dp + margin$p[j] * dnorm(x[, i], margin$mu[j], margin$sigma[j])
                 }
-                p[j, i] <- log(dp)
+                p[, i] <- log(dp)
             } else if (margin$type == "gamma") {
                 for (j in 1:length(margin$p)) {
                     dp <- dp + margin$p[j] * dgamma(x[, i], shape = margin$shape[j], scale = margin$scale[j])
                 }
-                p[j, i] <- log(dp)
+                p[, i] <- log(dp)
             }
         }
     } else {

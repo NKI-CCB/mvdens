@@ -156,8 +156,12 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             ms[[1]]$sigma <- sd(x[, i])
             BIC[1] <- log(nrow(x)) * 2 - 2 * sum(dnorm(x[, i], ms[[1]]$mu, ms[[1]]$sigma, log = T))
             for (k in 2:3) {
-                ms[[k]] <- normalmixEM(x[, i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)
-                BIC[k] <- log(nrow(x)) * 2 * k - 2 * ms[[k]]$loglik
+                capture.output(return_value <- try(ms[[k]] <- normalmixEM(x[, i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)))
+                if (inherits(return_value, "try-error")) {
+                    BIC[k] <- NA
+                } else {
+                    BIC[k] <- log(nrow(x)) * 2 * k - 2 * ms[[k]]$loglik
+                }
             }
             k <- which.min(BIC)
             m <- ms[[k]]

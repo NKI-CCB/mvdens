@@ -6,6 +6,73 @@ source("transform.r")
 source("gp.r")
 source("marginals.r")
 source("vine_copula.r")
+source("cross_validation.r")
+
+
+
+
+
+test_sizes <- c(20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200)
+#test_sizes <- 30 * 1.1^seq(1, 10)
+
+mu1 <- c(1, 2)
+mu2 <- c(4, 3)
+sigma1 <- rbind(c(1, 0.5), c(0.5, 2))
+sigma2 <- rbind(c(2, -0.3), c(-0.3, 1))
+bounds <- rbind(c(-Inf, Inf), c(-Inf, Inf))
+
+mu1 <- c(1, 1, 1)
+mu2 <- c(4, 4, 3)
+sigma1 <- rbind(c(1, 0.5, 0), c(0.5, 2, 0.2), c(0, 0.2, 3))
+sigma2 <- rbind(c(2, -0.3, 0.1), c(-0.3, 1, 0), c(0.1, 0, 2))
+bounds <- rbind(c(-Inf, Inf), c(-Inf, Inf), c(-Inf, Inf))
+
+
+
+folds <- 50
+
+spearman <- array(NA, c(length(test_sizes), 6, folds))
+lmse <- array(NA, c(length(test_sizes), 6, folds))
+
+for (size_i in 1:length(test_sizes)) {
+    cat("N=", test_sizes[size_i], "\n")
+    #foldres <- foreach(j = 1:folds) %dopar% {
+    for (j in 1:folds) {
+        x <- rbind(rmvnorm(round((2 / 3) * test_sizes[size_i]), mu1, sigma1),
+               rmvnorm(round((1 / 3) * test_sizes[size_i]), mu2, sigma2))
+        p <- log((2 / 3) * dmvnorm(x, mu1, sigma1) + (1 / 3) * dmvnorm(x, mu2, sigma2))
+
+        #plot(x[,c(2,1)])
+        #plot(x[,c(2,3)])
+
+        cv_kde <- mdd.cv(x, p, "kde", mcfolds = 1, mcsize = nrow(x) / 2, adjust = 1, parallel = F)
+        cv_gmm <- mdd.cv(x, p, "gmm", mcfolds = 1, mcsize = 5, parallel = F)
+        cv_vc_ecdf <- mdd.cv(x, p, "vc.ecdf", bounds = bounds, mcfolds = 1, mcsize = nrow(x) / 2, parallel = F, verbose = T)
+        cv_vc_mixture <- mdd.cv(x, p, "vc.mixture", bounds = bounds, mcfolds = 1, mcsize = nrow(x) / 2, parallel = F)
+        cv_gp_se <- mdd.cv(x, p, "gp", l = c(0.01, 10), b1 = min(p) - 5, kernel = "se", mcfolds = 1, mcsize = nrow(x) / 2, parallel = F)
+        cv_gp_matern32 <- mdd.cv(x, p, "gp", l = c(0.01, 10), b1 = min(p) - 5, kernel = "matern32", mcfolds = 1, mcsize = nrow(x) / 2, parallel = F)
+
+        # return(c(cv_kde$cor_spearman,
+        #           cv_gmm$cor_spearman,
+        #           cv_vc_ecdf$cor_spearman,
+        #           cv_vc_mixture$cor_spearman,
+        #           cv_gp_se$cor_spearman,
+        #           cv_gp_matern32$cor_spearman,
+        #           cv_kde$MSE,
+        #           cv_gmm$MSE,
+        #           cv_vc_ecdf$MSE,
+        #           cv_vc_mixture$MSE,
+        #           cv_gp_se$MSE,
+        #           cv_gp_matern32$MSE))
+    }
+    res <- matrix(unlist(foldres), ncol = 12, byrow = T)
+    spearman[size_i,,] <- t(res[, 1:6])
+    lmse[size_i,,] <- t(res[, 7:12])
+}
+
+
+
+
 
 source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep=""))
 

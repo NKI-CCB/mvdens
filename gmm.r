@@ -66,23 +66,11 @@ source("utils.r")
     fit$component_weights <- rep(NA, fit$k)
     for (ki in 1:fit$k) {
         fit$component_weights[ki] <- sum(fit$weights[, ki]) / nrow(x)
-        if (any(fit$weights[, ki] < 0)) {
-          cat("bla")
-        }
-        if (sum(fit$weights[, ki]) == 0) {
-          print(fit$weights[,ki])
-          cat("bla2")
-        }
         weighted <- cov.wt(x, fit$weights[, ki])
         fit$centers[ki,] <- weighted$center
         fit$covariances[[ki]] <- weighted$cov
     }
     return(fit)
-}
-
-.test.cholesky <- function(matrix) {
-    val = try(chol(matrix), silent = TRUE)
-    return(class(val) != "try-error")
 }
 
 .fit.gmm.internal <- function(x, K, truncated, bounds, epsilon, maxsteps, verbose) {
@@ -129,7 +117,8 @@ source("utils.r")
     }
 
     if (singular) {
-        warning(!singular, "singular solutions for 10 restarts")
+        fit$logl <- NA
+        warning("singular solutions for 10 restarts")
     } else {
         warning("not converged after maxsteps")
     }

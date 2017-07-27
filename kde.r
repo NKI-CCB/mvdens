@@ -1,21 +1,26 @@
 library(mvtnorm)
 
-fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ)
+fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = F, verbose = F, ...)
 {
     n <- nrow(x)
     d <- ncol(x)
-    factor <- n ^ (-1 / (d+4))
-    bw <- adjust * factor * apply(x, 2, bw.SJ)
 
     result <- list()
     result$type <- "kde"
     result$x <- x
-    result$H <- diag(bw)
+
+    if (diagonal) {
+        factor <- n ^ (-1 / (d + 4))
+        bw <- adjust * factor * apply(x, 2, bw.fn, ...)
+        result$H <- diag(bw)
+    } else {
+        result$H <- bw.fn(x, ...)
+    }
 
     return(result)
 }
 
-fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ)
+fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ, verbose = F)
 {
     result <- list()
     result$type <- "kde.transformed"

@@ -82,7 +82,7 @@ source("transform.r")
     return(fit.vine.copula(x.train, fit.marginal.mixture, ...))
 }
 
-mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, parallel = F, ...)
+mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, parallel = F, verbose = F, ...)
 {
     cv <- list()
   
@@ -116,15 +116,17 @@ mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, p
             cv$estimates <- foreach(i = 1:nfolds) %dopar% {
                 test_ix <- reordering[(i - 1) * holdout_size + 1:holdout_size]
                 train_ix <- setdiff(reordering, test_ix)
-                return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...))
+                return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], verbose = verbose, ...))
             }
         } else {
             cv$estimates <- list()
             for (i in 1:nfolds) {
-                cat(i, "\n")
+                if (verbose) {
+                    cat("Fold =", i, "\n")
+                }
                 test_ix <- reordering[(i - 1) * holdout_size + 1:holdout_size]
                 train_ix <- setdiff(reordering, test_ix)
-                cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...)
+                cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], verbose = verbose, ...)
             }
         }
 
@@ -139,15 +141,17 @@ mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, p
             cv$estimates <- foreach(i = 1:mcfolds) %dopar% {
                 test_ix <- sample(nrow(x), mcsize)
                 train_ix <- setdiff(1:nrow(x), test_ix)
-                return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...))
+                return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], verbose = verbose, ...))
             }
         } else {
             cv$estimates <- list()
             for (i in 1:mcfolds) {
-                cat(i, "\n")
+                if (verbose) {
+                    cat("Fold =", i, "\n")
+                }
                 test_ix <- sample(nrow(x), mcsize)
                 train_ix <- setdiff(1:nrow(x), test_ix)
-                cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], ...)
+                cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], verbose = verbose, ...)
             }
         }
     }

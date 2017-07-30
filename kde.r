@@ -20,13 +20,13 @@ fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = F, verbose = F, ...
     return(result)
 }
 
-fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ, verbose = F)
+fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ, diagonal = F, verbose = F)
 {
     result <- list()
     result$type <- "kde.transformed"
     result$transform.bounds <- bounds
     transformed <- mdd.transform_to_unbounded(x, bounds)
-    result$kde <- fit.kde(transformed, adjust = adjust, bw.fn = bw.fn)
+    result$kde <- fit.kde(transformed, adjust = adjust, bw.fn = bw.fn, diagonal = diagonal)
     return(result)
 }
 

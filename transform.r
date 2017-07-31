@@ -50,19 +50,35 @@ mdd.transform_from_unbounded <- function(transformed_x, bounds) {
 }
 
 mdd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
-    stopifnot(log)
-    for (i in 1:ncol(x)) {
-        if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
-            # [0,1] -> logit -> derivative = dlogit
-            p <- p + log(.dlogit(x[, i]))
-        } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
-            # [0,inf] -> log -> derivative = 1/log
-            p <- p - log(x[, i])
-        } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
-            # [-inf,inf] -> no transform
-        } else {
-            # [a,b] -> scaled logit -> derivative = dlogit_scale
-            p <- p + log(.dlogit_scale(x[, i], bounds[i, 1], bounds[i, 2]))
+    if (log) {
+        for (i in 1:ncol(x)) {
+            if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
+                # [0,1] -> logit -> derivative = dlogit
+                p <- p + log(.dlogit(x[, i]))
+            } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
+                # [0,inf] -> log -> derivative = 1/log
+                p <- p - log(x[, i])
+            } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
+                # [-inf,inf] -> no transform
+            } else {
+                # [a,b] -> scaled logit -> derivative = dlogit_scale
+                p <- p + log(.dlogit_scale(x[, i], bounds[i, 1], bounds[i, 2]))
+            }
+        }
+    } else {
+        for (i in 1:ncol(x)) {
+            if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
+                # [0,1] -> logit -> derivative = dlogit
+                p <- p * .dlogit(x[, i])
+            } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
+                # [0,inf] ->log(x) -> 1/x
+                p <- p / x[, i]
+            } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
+                # [-inf,inf] -> no transform
+            } else {
+                # [a,b] -> scaled logit -> derivative = dlogit_scale
+                p <- p * .dlogit_scale(x[, i], bounds[i, 1], bounds[i, 2])
+            }
         }
     }
     return(p)

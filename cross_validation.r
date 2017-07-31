@@ -34,13 +34,10 @@ source("transform.r")
   retval <- list()
   
   retval$structure <- train.function(x.train, p.train, ...)
-  retval$predicted <- mdd.pdf(retval$structure, x.test, log=T)
+  retval$predicted <- mdd.pdf(retval$structure, x.test, log=F)
   
   error <- retval$predicted - p.test
-  retval$MSEabs <- mean(error * error)
-
-  error <- (retval$predicted - mean(retval$predicted)) - (p.test - mean(p.test))
-  retval$MSE <- mean(error * error)
+  retval$rmse <- sqrt(mean(error * error))
 
   retval$cor_pearson <- cor(retval$predicted, p.test, method="pearson")
   retval$cor_spearman <- cor(retval$predicted, p.test, method="spearman")
@@ -158,13 +155,11 @@ mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, p
 
     ns <- length(cv$estimates)
 
-    cv$MSEabs <- rep(NA, ns)
-    cv$MSE <- rep(NA, ns)
+    cv$rmse <- rep(NA, ns)
     cv$cor_pearson <- rep(NA, ns)
     cv$cor_spearman <- rep(NA, ns)
     for (i in 1:ns) {
-        cv$MSEabs[i] <- cv$estimates[[i]]$MSEabs
-        cv$MSE[i] <- cv$estimates[[i]]$MSE
+        cv$rmse[i] <- cv$estimates[[i]]$rmse
         cv$cor_pearson[i] <- cv$estimates[[i]]$cor_pearson
         cv$cor_spearman[i] <- cv$estimates[[i]]$cor_spearman
     }
@@ -176,54 +171,9 @@ cv.compare.plots <- function(cv_list)
 {
     require(beeswarm)
 
-    mse <- lapply(cv_list, function(x) { log(x$MSE) })
-    beeswarm(mse, ylab = "log mean squared error", las = 2)
+    rmse <- lapply(cv_list, function(x) { (x$rmse) })
+    beeswarm(rmse, ylab = "root mean squared error", las = 2)
 
     correlation <- lapply(cv_list, function(x) { x$cor_spearman })
     beeswarm(correlation, ylab = "Spearman correlation", las = 2)
 }
-
-# 
-# library(doParallel)
-# cl <- makeCluster(4)
-# registerDoParallel(cl)
-# 
-# result <- mdd.cv(x, lposterior, "gmm", K = 4, parallel = T)
-# result_truncated <- mdd.cv(x, lposterior, "gmm.truncated", K = 3, bounds = bounds, parallel = T)
-# result_gp <- mdd.cv(x, lposterior - min(lposterior) + 3, "gp", kernel = "se", l = 0.68, parallel = T)
-# result_gp_matern <- mdd.cv(x, lposterior - min(lposterior) + 3, "gp", kernel = "matern32", l = 0.93, parallel = T)
-# result_gp_exp <- mdd.cv(x, exp(lposterior), "gp", kernel = "se", l = 0.26, parallel = T)
-# 
-# result_vc_ecdf <- mdd.cv(x, lposterior, "vc.ecdf", bounds = bounds, parallel = T)
-# result_vc_parametric <- mdd.cv(x, lposterior, "vc.parametric", bounds = bounds, parallel = T)
-# result_vc_mixture <- mdd.cv(x, lposterior, "vc.mixture", bounds = bounds, parallel = T)
-# 
-# stopCluster(cl)
-# 
-# par(mfrow=c(2,4))
-# plot(lposterior, result$predicted, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20,20), c(-20,20), lty=2)
-# plot(lposterior, result_truncated$predicted, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# plot(lposterior, result_gp$predicted + min(lposterior) - 3, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# plot(lposterior, result_gp_matern$predicted + min(lposterior) - 3, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# plot(lposterior, log(result_gp_exp$predicted), xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# plot(lposterior, result_vc_ecdf$predicted, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# plot(lposterior, result_vc_parametric$predicted, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# plot(lposterior, result_vc_mixture$predicted, xlim = c(-10, 15), ylim = c(-15, 15))
-# lines(c(-20, 20), c(-20, 20), lty = 2)
-# par(mfrow = c(1, 1))
-# 
-# par(mar=c(12,4,4,1))
-# beeswarm(lapply(list(result$MSE, result_truncated$MSE, result_gp$MSE, result_gp_matern$MSE, result_gp_exp$MSE, result_vc_ecdf$MSE, result_vc_parametric$MSE, result_vc_mixture$MSE), log),
-#          labels = c("GMM", "Truncated GMM", "Gaussian process", "Gaussian process matern", "Gaussian process exp", "Vine Copula - ECDF", "Vine Copula - parametric", "Vine Copula - mixture"),
-#          ylab = "log mean squared error", las = 2)
-# beeswarm(list(result$cor_spearman, result_truncated$cor_spearman, result_gp$cor_spearman, result_gp_matern$cor_spearman, result_gp_exp$cor_spearman, result_vc_ecdf$cor_spearman, result_vc_parametric$cor_spearman, result_vc_mixture$cor_spearman),
-#          labels = c("GMM", "Truncated GMM", "Gaussian process", "Gaussian process matern", "Gaussian process", "Vine Copula - ECDF", "Vine Copula - parametric", "Vine Copula - mixture"),
-#          ylab = "Spearman correlation", las = 2)
-# par(mar = c(5, 4, 4, 1))

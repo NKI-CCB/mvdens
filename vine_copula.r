@@ -16,7 +16,7 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
     return(structure(result, class = "mdd.vine.copula"))
 }
 
-evaluate.vine.copula <- function(fit, x) {
+evaluate.vine.copula <- function(fit, x, log = F) {
     if (!is.null(fit$marginal)) {
         transformed <- transform.marginals(x, fit$marginal)
     } else {
@@ -24,7 +24,11 @@ evaluate.vine.copula <- function(fit, x) {
     }
     p_vc <- RVineLogLik(transformed, fit$RVM, separate = T)$loglik
     if (!is.null(fit$marginal)) {
-        p <- marginal.correct.p(fit$marginal, x, p_vc)
+        p <- marginal.correct.p(fit$marginal, x, p_vc, log = T)
     }
-    return(p)
+    if (log) {
+        return(p)
+    } else {
+        return(exp(p))
+    }
 }

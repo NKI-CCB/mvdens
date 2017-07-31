@@ -38,6 +38,10 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
 fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
     library(MASS)
 
+    if (!is.matrix(x)) {
+        x <- as.matrix(x)
+    }
+
     marginal <- list()
     marginal$type <- "parametric"
     marginal$dists <- list()
@@ -93,6 +97,10 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
 fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
     library(mixtools)
     library(betareg)
+
+    if (!is.matrix(x)) {
+        x <- as.matrix(x)
+    }
 
     marginal <- list()
     marginal$type <- "mixture"
@@ -287,6 +295,8 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
 }
 
 transform.marginals <- function(x, marginal) {
+    stopifnot(class(marginal) == "mdd.marginal")
+
     if (!is.matrix(x)) {
         x <- as.matrix(x)
     }
@@ -347,6 +357,8 @@ transform.marginals <- function(x, marginal) {
 }
 
 reverse.transform.marginals <- function(transformed, marginal) {
+    stopifnot(class(marginal) == "mdd.marginal")
+
     if (!is.matrix(transformed)) {
         transformed <- as.matrix(transformed)
     }
@@ -360,10 +372,11 @@ reverse.transform.marginals <- function(transformed, marginal) {
         stop("Unknown marginal type")
     }
 
-    return(transformed)
+    return(x)
 }
 
 marginal.pdf <- function(marginal, x, log = T) {
+    stopifnot(class(marginal) == "mdd.marginal")
     stopifnot(log)
 
     p <- matrix(NA, nrow(x), ncol(x))
@@ -417,6 +430,7 @@ marginal.pdf <- function(marginal, x, log = T) {
 }
 
 marginal.correct.p <- function(marginal, x, p, log = T) {
+    stopifnot(class(marginal) == "mdd.marginal")
     mp <- marginal.pdf(marginal, x, log)
     for (i in 1:ncol(x)) {
         p <- p + mp[, i]
@@ -424,22 +438,21 @@ marginal.correct.p <- function(marginal, x, p, log = T) {
     return(p)
 }
 
-# setClass('mdd.marginal')
-# setMethod(summary, 'mdd.marginal', function(object, ...) {
-#     cat("mddens marginal distribution of type:", object$type, "\n")
-#     if (object$type == "ecdf") {
-#         cat("  Number of samples:", nrow(object$x), "\n")
-#         cat("  Bandwidths:\n")
-#         for (i in 1:length(object$bw)) {
-#             cat("   ", object$varnames[i], "-", object$bw[i], "\n")
-#         }
-#     } else if (object$type == "parametric") {
-#         for (i in 1:length(object$dists)) {
-#             cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "\n")
-#         }
-#     } else if (object$type == "mixture") {
-#         for (i in 1:length(object$dists)) {
-#             cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "- p:", paste(object$dists[[i]]$p, collapse = ","), "\n")
-#         }
-#     }
-# })
+setClass('mdd.marginal')
+setMethod('summary', 'mdd.marginal', function(object, ...) {
+    cat("mddens marginal distribution of type:", object$type, "\n")
+    if (object$type == "ecdf") {
+        cat("  Bandwidths:\n")
+        for (i in 1:length(object$bw)) {
+            cat("   ", object$varnames[i], "-", object$bw[i], "\n")
+        }
+    } else if (object$type == "parametric") {
+        for (i in 1:length(object$dists)) {
+            cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "\n")
+        }
+    } else if (object$type == "mixture") {
+        for (i in 1:length(object$dists)) {
+            cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "- p:", paste(object$dists[[i]]$p, collapse = ","), "\n")
+        }
+    }
+})

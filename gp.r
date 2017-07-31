@@ -1,4 +1,3 @@
-
 .kernel.squared.exponential <- function(x1, x2, l) {
     factor <- -1.0 / (2 * l * l)
     if (is.matrix(x1)) {
@@ -71,12 +70,15 @@
       return(NA)
     }
 
-    mean_sub <- rep(NA, length(result$p))
-    for (i in 1:length(result$p)) {
-      mean_sub[i] <- result$p[i] - b1 - b2 * (result$xcentered[i,] %*% result$xcentered[i,])
+    if (is.null(result$meanfn)) {
+        mean_sub <- rep(NA, length(result$p))
+        for (i in 1:length(result$p)) {
+            mean_sub[i] <- result$p[i] - b1 - b2 * (result$xcentered[i,] %*% result$xcentered[i,])
+        }
+        p1 <- sum(backsolve(L, mean_sub, transpose = T) ^ 2)
+    } else {
+        p1 <- sum(backsolve(L, result$pmean_sub, transpose = T) ^ 2)
     }
-      
-    p1 <- sum(backsolve(L, mean_sub, transpose = T) ^ 2)
     logdet <- 2.0 * sum(log(diag(L)))
     logml <- -0.5 * p1 - 0.5 * logdet - 0.5 * result$n * log(2*pi)
     if (verbose) {
@@ -98,7 +100,7 @@
     return(.gp.log.marginal.likelihood(x[1], x[2], x[3], result, verbose))
 }
 
-fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=F) {
+fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, verbose=F) {
     result <- list()
     result$type <- "gp"
 
@@ -122,6 +124,11 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=F) {
     result$xcentered <- t(t(x) - result$xmean)
     result$p <- p
     result$sigman <- sigman
+    result$meanfn <- meanfn
+
+    if (!is.null(meanfn)) {
+        result$pmean_sub <- result$p - meanfn(result$x)
+    }
 
     num_parameters_range <- (length(l) > 1) + (length(b1) > 1) + (length(b2) > 1)
 
@@ -156,12 +163,15 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, sigman=1e-10, verbose=F) {
 
     result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
     L <- chol(result$kxx)
-    
-    mean_sub <- rep(NA, length(result$p))
-    for (i in 1:length(result$p)) {
-        mean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$xcentered[i,] %*% result$xcentered[i,])
+
+    if (is.null(meanfn)) {
+        result$pmean_sub <- rep(NA, length(result$p))
+        for (i in 1:length(result$p)) {
+            result$pmean_sub[i] <- result$p[i] - result$b1 - result$b2 * (result$xcentered[i,] %*% result$xcentered[i,])
+        }
     }
-    result$alpha <- backsolve(L, backsolve(L, mean_sub, transpose = TRUE))
+
+    result$alpha <- backsolve(L, backsolve(L, result$pmean_sub, transpose = TRUE))
 
     return(result)
 }
@@ -172,8 +182,12 @@ evaluate.gp <- function(fit, x) {
     xcenter <- t(t(x) - fit$xmean)
     kxsx <- fit$kernel(x, fit$x, fit$l)
     f <- kxsx %*% fit$alpha
-    for (i in 1:nrow(xcenter)) {
-        f[i] <- f[i] + fit$b1 + fit$b2 * (xcenter[i,] %*% xcenter[i,])
+    if (is.null(fit$meanfn)) {
+        for (i in 1:nrow(xcenter)) {
+            f[i] <- f[i] + fit$b1 + fit$b2 * (xcenter[i,] %*% xcenter[i,])
+        }
+    } else {
+        f <- f + fit$meanfn(x)
     }
 
     return(f)

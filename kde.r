@@ -1,12 +1,13 @@
 library(mvtnorm)
 
-fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = F, verbose = F, ...)
+fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...)
 {
     n <- nrow(x)
     d <- ncol(x)
 
     result <- list()
     result$type <- "kde"
+    result$dim <- ncol(x)
     result$x <- x
 
     if (diagonal) {
@@ -16,18 +17,17 @@ fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = F, verbose = F, ...
     } else {
         result$H <- bw.fn(x, ...)
     }
-
-    return(result)
+    return(structure(result, class = "mdd.density"))
 }
 
-fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ, verbose = F)
+fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F)
 {
     result <- list()
     result$type <- "kde.transformed"
     result$transform.bounds <- bounds
     transformed <- mdd.transform_to_unbounded(x, bounds)
-    result$kde <- fit.kde(transformed, adjust = adjust, bw.fn = bw.fn)
-    return(result)
+    result$kde <- fit.kde(transformed, adjust = adjust, bw.fn = bw.fn, diagonal = diagonal)
+    return(structure(result, class = "mdd.density"))
 }
 
 evaluate.kde <- function(fit, x, log = FALSE)

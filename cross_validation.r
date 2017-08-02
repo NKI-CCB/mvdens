@@ -34,7 +34,7 @@ source("transform.r")
   retval <- list()
   
   retval$structure <- train.function(x.train, p.train, ...)
-  retval$predicted <- mdd.pdf(retval$structure, x.test, log=F)
+  retval$predicted <- mdd.pdf(retval$structure, x.test, log=T)
   
   error <- retval$predicted - p.test
   retval$rmse <- sqrt(mean(error * error))
@@ -167,13 +167,13 @@ mdd.cv <- function(x, p, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, p
   return(cv)
 }
 
-cv.compare.plots <- function(cv_list)
+cv.compare.plots <- function(cv_list, ...)
 {
     require(beeswarm)
 
     rmse <- lapply(cv_list, function(x) { (x$rmse) })
-    beeswarm(rmse, ylab = "root mean squared error", las = 2)
+    beeswarm(rmse, ylab = "root mean squared error", las = 2, ...)
 
     correlation <- lapply(cv_list, function(x) { x$cor_spearman })
-    beeswarm(correlation, ylab = "Spearman correlation", las = 2)
+    beeswarm(correlation, ylab = "Spearman correlation", las = 2, ...)
 }

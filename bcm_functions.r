@@ -94,6 +94,23 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                       covariance = paste(apply(fit$gmm$covariances[[i]], 2, paste, collapse = ","), collapse = ";"))
             xml_root$children[[length(xml_root$children) + 1]] <- comp
         }
+    } else if (fit$type == "gmm.truncated") {
+        xmlAttrs(xml_root) <- c(type = "GMMtruncated")
+        bounds <- prior_bounds_all(bcm.model, c(0, 1))
+        for (i in 1:fit$K) {
+            mu <- fit$centers[i,]
+            sigma <- fit$covariances[[i]]
+            pt <- dtmvnorm(mu, mu, sigma, lower = bounds[, 1], upper = bounds[, 2], log = T)
+            pn <- dmvnorm(mu, mu, sigma, log = T)
+            nc <- pt - pn
+
+            comp <- xmlNode("component")
+            xmlAttrs(comp) <- c(weight = fit$proportions[i],
+                      mean = paste(fit$centers[i,], collapse = ";"),
+                      covariance = paste(apply(fit$covariances[[i]], 2, paste, collapse = ","), collapse = ";"),
+                      normalizing_factor = nc)
+            xml_root$children[[length(xml_root$children) + 1]] <- comp
+        }
     } else if (fit$type == "vine.copula") {
         xmlAttrs(xml_root) <- c(type = "VineCopula")
         for (i in 1:bcm.model$nvar) {

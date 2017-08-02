@@ -91,7 +91,7 @@ mdd.pdf <- function(mddens_fit, x, log = FALSE) {
     } else if (mddens_fit$type == "gp") {
         return(evaluate.gp(mddens_fit, x))
     } else if (mddens_fit$type == "vine.copula") {
-        return(evaluate.vine.copula(mddens_fit, x))
+        return(evaluate.vine.copula(mddens_fit, x, log))
     } else {
         stop("Unknown type")
     }

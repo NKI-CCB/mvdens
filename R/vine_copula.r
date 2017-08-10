@@ -1,5 +1,5 @@
 library(VineCopula)
-source("marginals.r")
+#source("marginals.r")
 
 fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), trunclevel = NA, verbose = F) {
     result <- list()
@@ -13,7 +13,7 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
     }
     result$RVM <- RVineStructureSelect(transformed, cores = 1, trunclevel = trunclevel, progress = verbose)
     result$RVM$names <- colnames(x)
-    return(structure(result, class = "mdd.vine.copula"))
+    return(structure(result, class = "mdd.density"))
 }
 
 evaluate.vine.copula <- function(fit, x, log = F) {

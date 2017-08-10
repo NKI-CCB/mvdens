@@ -1,9 +1,9 @@
-source("kde.r")
-source("gmm.r")
-source("pdf.r")
-source("vine_copula.r")
-source("gp.r")
-source("transform.r")
+#source("kde.r")
+#source("gmm.r")
+#source("pdf.r")
+#source("vine_copula.r")
+#source("gp.r")
+#source("transform.r")
 # 
 # source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
 # 

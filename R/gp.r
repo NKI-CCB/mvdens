@@ -173,7 +173,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
 
     result$alpha <- backsolve(L, backsolve(L, result$pmean_sub, transpose = TRUE))
 
-    return(result)
+    return(structure(result, class = "mdd.density"))
 }
 
 evaluate.gp <- function(fit, x) {

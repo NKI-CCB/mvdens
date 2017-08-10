@@ -1,4 +1,4 @@
-source("utils.r")
+#source("utils.r")
 
 mdd.cdf <- function(mddens_fit, x, log) {
     if (mddens_fit$type == "gmm") {

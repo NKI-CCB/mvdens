@@ -1,7 +1,7 @@
 library(mvtnorm)
 library(tmvtnorm)
 
-source("utils.r")
+#source("utils.r")
 
 .assign_kmeanspp <- function(x, K) {
     stopifnot(K >= 1)
@@ -138,7 +138,7 @@ fit.gmm <- function(x, K, epsilon = 0.01, maxsteps = 100, verbose = F) {
     nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
     result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
     result$assignment <- apply(fit$weights, 1, which.max)
-    return(result)
+    return(structure(result, class = "mdd.density"))
 }
 
 fit.gmm.transformed <- function(x, K, bounds, epsilon = 0.01, maxsteps = 100, verbose = F) {
@@ -147,7 +147,7 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 0.01, maxsteps = 100, ve
     result$transform.bounds <- bounds
     transformed <- mdd.transform_to_unbounded(x, bounds)
     result$gmm <- fit.gmm(transformed, K, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-    return(result)
+    return(structure(result, class = "mdd.density"))
 }
 
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 0.01, maxsteps = 100, verbose = F) {
@@ -164,7 +164,7 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
     result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
     result$assignment <- apply(fit$weights, 1, which.max)
-    return(result)
+    return(structure(result, class = "mdd.density"))
 }
 
 gmm.BIC <- function(x, K = 1:9, epsilon = 0.01, maxsteps = 100, verbose = F) {

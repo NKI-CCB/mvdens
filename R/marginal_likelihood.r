@@ -1,4 +1,4 @@
-source('pdf.r')
+#source('pdf.r')
 
 mdd.marginal.likelihood <- function(mddens_fit, x, logp)
 {

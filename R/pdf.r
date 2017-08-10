@@ -1,13 +1,13 @@
-source("utils.r")
-source("gp.r")
-source("vine_copula.r")
+#source("utils.r")
+#source("gp.r")
+#source("vine_copula.r")
 
 mdd.pdf <- function(mddens_fit, x, log = FALSE) {
     if (mddens_fit$type == "kde") {
-        return(evaluate.kde(mddens_fit, x, log))
+        return(.evaluate.kde(mddens_fit, x, log))
     } else if (mddens_fit$type == "kde.transformed") {
         transformed <- mdd.transform_to_unbounded(x, mddens_fit$transform.bounds)
-        p <- evaluate.kde(mddens_fit$kde, transformed, log = log)
+        p <- .evaluate.kde(mddens_fit$kde, transformed, log = log)
         return(mdd.correct_p_for_transformation(x, mddens_fit$transform.bounds, p, log = log))
     } else if (mddens_fit$type == "gmm") {
         require(mvtnorm)

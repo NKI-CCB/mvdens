@@ -20,6 +20,11 @@
     return(sigma)
 }
 
+.kernel.se.integral <- function(alpha, l, D) {
+  d <- sqrt((2*pi*l*l)^D)
+  integral <- sum(d * alpha) 
+}
+
 .kernel.matern32 <- function(x1, x2, l) {
     if (is.matrix(x1)) {
         sigma <- matrix(0, nrow(x1), nrow(x2))
@@ -39,6 +44,11 @@
     }
 
     return(sigma)
+}
+
+.kernel.matern32.integral <- function(alpha, l, D) {
+  d <- sqrt((2*pi*l*l)^D)
+  integral <- sum(d * alpha) 
 }
 
 .kernel.matern52 <- function(x1, x2, l) {
@@ -96,6 +106,9 @@
 .gp.log.marginal.likelihood.optimb2 <- function(x, result, verbose) {
     return(.gp.log.marginal.likelihood(result$l, result$b1, x, result, verbose))
 }
+.gp.log.marginal.likelihood.optim2 <- function(x, result, verbose) {
+    return(.gp.log.marginal.likelihood(x[1], x[2], result$b2, result, verbose))
+}
 .gp.log.marginal.likelihood.optim3 <- function(x, result, verbose) {
     return(.gp.log.marginal.likelihood(x[1], x[2], x[3], result, verbose))
 }
@@ -150,6 +163,16 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
             opt <- optimize(.gp.log.marginal.likelihood.optimb2, b2, maximum = T, result = result, verbose = verbose)
             result$b2 <- opt$maximum
         }
+    } else if (num_parameters_range == 2) {
+        if (length(b2) != 1) {
+            stop("Not implemented optimization for b2 without l and b1")
+        }
+        result$b2 <- b2
+        ctrl <- list()
+        ctrl$fnscale <- -1.0
+        opt <- optim(c(1, mean(p)), .gp.log.marginal.likelihood.optim2, result = result, verbose = verbose, method = "Nelder-Mead", control = ctrl)
+        result$l <- opt$par[1]
+        result$b1 <- opt$par[2]
     } else if (num_parameters_range == 3) {
         ctrl <- list()
         ctrl$fnscale <- -1.0
@@ -158,7 +181,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
         result$b1 <- opt$par[2]
         result$b2 <- opt$par[3]
     } else {
-        stop("Only implemented optimizing 1 parameter or all 3")
+        stop()
     }
 
     result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
@@ -172,6 +195,106 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
     }
 
     result$alpha <- backsolve(L, backsolve(L, result$pmean_sub, transpose = TRUE))
+
+    return(structure(result, class = "mdd.density"))
+}
+
+.gp.cv.optimize <- function(l, result, verbose) {
+    nfolds <- 5
+    n <- result$n
+    if (is.matrix(result$x)) {
+      D <- ncol(result$x)
+    } else {
+      D <- 1
+    }
+    
+    K <- result$kernel(result$x, result$x, l)
+    L <- chol(K + result$sigman * diag(n))
+    alpha <- backsolve(L, backsolve(L, result$p, transpose = T))
+    d <- sqrt((2*pi*l*l)^D)
+    integral <- sum(d * alpha)
+    #if (integral <= 0) {
+    #  cat(c("l:", l, "integral:", integral, "\n"))
+    #  return(Inf)
+    #}
+    s <- 1.0 / integral
+
+    sse <- rep(NA, nfolds)
+    for (fi in 1:nfolds) {
+        foldsize <- n / nfolds
+        test_ix <- (fi - 1) * foldsize + 1:foldsize
+        train_ix <- setdiff(1:n, test_ix)
+
+        if (is.matrix(result$x)) {
+          xtrain <- result$x[train_ix,]
+          xtest <- result$x[test_ix,]
+        } else {
+          xtrain <- result$x[train_ix]
+          xtest <- result$x[test_ix]
+        }
+        nt <- length(train_ix)
+        K <- result$kernel(xtrain, xtrain, l)
+        L <- chol(K + result$sigman * diag(nt))
+        alpha <- backsolve(L, backsolve(L, result$p[train_ix], transpose = T))
+
+        ntest <- length(test_ix)
+        ktest <- result$kernel(xtest, xtrain, l)
+
+        f <- (ktest %*% alpha) * s
+        diff <- result$p[test_ix] - f
+        sse[fi] <- sum(diff ^ 2)
+    }
+    rmse <- sqrt(sum(sse) / n)
+
+    if (verbose) {
+        cat(c("l:", l, "integral:", integral, "rmse:", rmse, "\n"))
+    }
+
+    return(rmse)
+}
+
+fit.gp2 <- function(x, p, kernel, l0 = c(0.1, 1, 2), sigman = 1e-12, verbose = F) {
+    result <- list()
+    result$type <- "gp"
+
+    if (is.matrix(x)) {
+        result$n <- nrow(x)
+    } else {
+        result$n <- length(x)
+    }
+
+    result$kernel.name <- kernel
+    if (kernel == "squared.exponential" || kernel == "se") {
+        result$kernel <- .kernel.squared.exponential
+    } else if (kernel == "matern32") {
+        result$kernel <- .kernel.matern32
+    } else if (kernel == "matern52") {
+        result$kernel <- .kernel.matern52
+    }
+
+    result$x <- x
+    result$p <- p
+    result$sigman <- sigman
+
+    library(nloptr)
+    
+    opt <- neldermead(l, .gp.cv.optimize, lower=0, result = result, verbose = verbose)
+    result$l <- opt$par
+    #opt <- optimize(.gp.cv.optimize, c(0.1,2), result = result, verbose = verbose)
+    #result$l <- opt$minimum
+
+    result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
+    L <- chol(result$kxx)
+    result$alpha <- backsolve(L, backsolve(L, p, transpose = TRUE))
+    
+    if (is.matrix(result$x)) {
+      D <- ncol(result$x)
+    } else {
+      D <- 1
+    }
+    d <- sqrt((2*pi*result$l*result$l)^D)
+    integral <- sum(d * result$alpha)
+    result$s <- 1.0 / integral
 
     return(structure(result, class = "mdd.density"))
 }
@@ -191,6 +314,13 @@ evaluate.gp <- function(fit, x) {
     }
 
     return(f)
+}
+
+evaluate.gp2 <- function(fit, x) {
+    stopifnot(fit$type == "gp")
+    kxsx <- fit$kernel(x, fit$x, fit$l)
+    f <- kxsx %*% fit$alpha
+    return(fit$s * f)
 }
 
 #x <- rnorm(1000)

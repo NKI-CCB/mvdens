@@ -166,8 +166,7 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
         gp_params <- xmlNode("GaussianProcess")
         xmlAttrs(gp_params) <- c(kernel = fit$kernel.name,
                                  l = fit$l,
-                                 b1 = fit$b1,
-                                 b2 = fit$b2,
+                                 s = fit$s,
                                  x = paste(apply(fit$x, 2, paste, collapse = ","), collapse = ";"),
                                  p = paste(fit$p, collapse=";"))
         xml_root$children[[length(xml_root$children) + 1]] <- gp_params

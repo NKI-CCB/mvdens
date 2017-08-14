@@ -113,6 +113,14 @@
     return(.gp.log.marginal.likelihood(x[1], x[2], x[3], result, verbose))
 }
 
+#' Fit a Gaussian process density function
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param p
+#' @param kernel
+#' @export
+#' @examples
 fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, verbose=F) {
     result <- list()
     result$type <- "gp"
@@ -199,7 +207,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
     return(structure(result, class = "mdd.density"))
 }
 
-.gp.cv.optimize <- function(l, result, verbose) {
+.gp.cv.optimize <- function(l, result, verbose, scale_to_1) {
     nfolds <- 5
     n <- result$n
     if (is.matrix(result$x)) {
@@ -209,15 +217,24 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
     }
     
     K <- result$kernel(result$x, result$x, l)
-    L <- chol(K + result$sigman * diag(n))
-    alpha <- backsolve(L, backsolve(L, result$p, transpose = T))
-    d <- sqrt((2*pi*l*l)^D)
-    integral <- sum(d * alpha)
-    #if (integral <= 0) {
-    #  cat(c("l:", l, "integral:", integral, "\n"))
-    #  return(Inf)
-    #}
-    s <- 1.0 / integral
+
+    return_value <- try(L <- chol(K + result$sigman * diag(n)), silent = !verbose)
+    if (inherits(return_value, "try-error")) {
+        return(Inf)
+    }
+
+    if (scale_to_1) {
+        alpha <- backsolve(L, backsolve(L, result$p, transpose = T))
+        d <- sqrt((2 * pi * l * l) ^ D)
+        integral <- sum(d * alpha)
+        if (integral <= 0) {
+            cat(c("l:", l, "integral:", integral, "\n"))
+            return(Inf)
+        }
+        s <- 1.0 / integral
+    } else {
+        s <- 1.0
+    }
 
     sse <- rep(NA, nfolds)
     for (fi in 1:nfolds) {
@@ -234,7 +251,12 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
         }
         nt <- length(train_ix)
         K <- result$kernel(xtrain, xtrain, l)
-        L <- chol(K + result$sigman * diag(nt))
+
+        return_value <- try(L <- chol(K + result$sigman * diag(nt)), silent = !verbose)
+        if (inherits(return_value, "try-error")) {
+            return(Inf)
+        }
+
         alpha <- backsolve(L, backsolve(L, result$p[train_ix], transpose = T))
 
         ntest <- length(test_ix)
@@ -247,13 +269,25 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
     rmse <- sqrt(sum(sse) / n)
 
     if (verbose) {
-        cat(c("l:", l, "integral:", integral, "rmse:", rmse, "\n"))
+        if (scale_to_1) {
+            cat(c("l:", l, "integral:", integral, "rmse:", rmse, "\n"))
+        } else {
+            cat(c("l:", l, "rmse:", rmse, "\n"))
+        }
     }
 
     return(rmse)
 }
 
-fit.gp2 <- function(x, p, kernel, l0 = c(0.1, 1, 2), sigman = 1e-12, verbose = F) {
+#' Fit a Gaussian process density function
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param p
+#' @param kernel
+#' @export
+#' @examples
+fit.gp2 <- function(x, p, kernel, l0 = 0.2, scale_to_1=T, sigman = 1e-12, verbose = F) {
     result <- list()
     result$type <- "gp"
 
@@ -278,7 +312,8 @@ fit.gp2 <- function(x, p, kernel, l0 = c(0.1, 1, 2), sigman = 1e-12, verbose = F
 
     library(nloptr)
     
-    opt <- neldermead(l, .gp.cv.optimize, lower=0, result = result, verbose = verbose)
+    opt <- neldermead(l0, .gp.cv.optimize, lower = 0, result = result, verbose = verbose, scale_to_1 = scale_to_1)
+    #opt <- sbplx(l0, .gp.cv.optimize, lower=0, result = result, verbose = verbose)
     result$l <- opt$par
     #opt <- optimize(.gp.cv.optimize, c(0.1,2), result = result, verbose = verbose)
     #result$l <- opt$minimum
@@ -286,19 +321,29 @@ fit.gp2 <- function(x, p, kernel, l0 = c(0.1, 1, 2), sigman = 1e-12, verbose = F
     result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
     L <- chol(result$kxx)
     result$alpha <- backsolve(L, backsolve(L, p, transpose = TRUE))
-    
-    if (is.matrix(result$x)) {
-      D <- ncol(result$x)
+
+    if (scale_to_1) {
+        if (is.matrix(result$x)) {
+            D <- ncol(result$x)
+        } else {
+            D <- 1
+        }
+        d <- sqrt((2 * pi * result$l * result$l) ^ D)
+        integral <- sum(d * result$alpha)
+        result$s <- 1.0 / integral
     } else {
-      D <- 1
+        result$s <- 1.0
     }
-    d <- sqrt((2*pi*result$l*result$l)^D)
-    integral <- sum(d * result$alpha)
-    result$s <- 1.0 / integral
 
     return(structure(result, class = "mdd.density"))
 }
-
+#' Fit a Gaussian process density function
+#'
+#' description
+#' @param fit
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 evaluate.gp <- function(fit, x) {
     stopifnot(fit$type == "gp")
 
@@ -316,6 +361,13 @@ evaluate.gp <- function(fit, x) {
     return(f)
 }
 
+#' Evaluate a Gaussian process density function
+#'
+#' description
+#' @param fit
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 evaluate.gp2 <- function(fit, x) {
     stopifnot(fit$type == "gp")
     kxsx <- fit$kernel(x, fit$x, fit$l)

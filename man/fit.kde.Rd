@@ -19,7 +19,7 @@ fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...)
 description
 }
 \examples{
-x <- rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1))
+x <- rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1)))
 fit <- fit.kde(x)
 fit <- fit.kde(x, bw.fn = Hpi, diagonal = F)
 }

@@ -21,8 +21,9 @@
 }
 
 .kernel.se.integral <- function(alpha, l, D) {
-  d <- sqrt((2*pi*l*l)^D)
-  integral <- sum(d * alpha) 
+    d <- sqrt((2*pi*l*l)^D)
+    integral <- sum(d * alpha)
+    return(integral)
 }
 
 .kernel.matern32 <- function(x1, x2, l) {
@@ -47,8 +48,9 @@
 }
 
 .kernel.matern32.integral <- function(alpha, l, D) {
-  d <- sqrt((2*pi*l*l)^D)
-  integral <- sum(d * alpha) 
+    d <- 2 * (1+D) * (l * sqrt(pi/3)) ^ D * gamma(D) / gamma(D / 2)
+    integral <- sum(d * alpha)
+    return(integral)
 }
 
 .kernel.matern52 <- function(x1, x2, l) {
@@ -136,10 +138,13 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
     result$kernel.name <- kernel
     if (kernel == "squared.exponential" || kernel == "se") {
         result$kernel <- .kernel.squared.exponential
+        result$kernel.integral <- .kernel.se.integral
     } else if (kernel == "matern32") {
         result$kernel <- .kernel.matern32
+        result$kernel.integral <- .kernel.matern32.integral
     } else if (kernel == "matern52") {
         result$kernel <- .kernel.matern52
+        result$kernel.integral <- .kernel.matern52.integral
     }
     result$x <- x
     result$xcentered <- t(t(x) - result$xmean)
@@ -225,8 +230,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
 
     if (scale_to_1) {
         alpha <- backsolve(L, backsolve(L, result$p, transpose = T))
-        d <- sqrt((2 * pi * l * l) ^ D)
-        integral <- sum(d * alpha)
+        integral <- result$kernel.integral(alpha, l, D)
         if (integral <= 0) {
             cat(c("l:", l, "integral:", integral, "\n"))
             return(Inf)
@@ -287,7 +291,7 @@ fit.gp <- function(x, p, kernel, l=1, b1=0, b2=0, meanfn=NULL, sigman=1e-10, ver
 #' @param kernel
 #' @export
 #' @examples
-fit.gp2 <- function(x, p, kernel, l0 = 0.2, scale_to_1=T, sigman = 1e-12, verbose = F) {
+fit.gp2 <- function(x, p, kernel, l = 1.0, scale_to_1=T, sigman = 1e-12, verbose = F) {
     result <- list()
     result$type <- "gp"
 
@@ -300,23 +304,29 @@ fit.gp2 <- function(x, p, kernel, l0 = 0.2, scale_to_1=T, sigman = 1e-12, verbos
     result$kernel.name <- kernel
     if (kernel == "squared.exponential" || kernel == "se") {
         result$kernel <- .kernel.squared.exponential
+        result$kernel.integral <- .kernel.se.integral
     } else if (kernel == "matern32") {
         result$kernel <- .kernel.matern32
+        result$kernel.integral <- .kernel.matern32.integral
     } else if (kernel == "matern52") {
         result$kernel <- .kernel.matern52
+        result$kernel.integral <- .kernel.matern52.integral
     }
 
     result$x <- x
     result$p <- p
     result$sigman <- sigman
 
-    library(nloptr)
-    
-    opt <- neldermead(l0, .gp.cv.optimize, lower = 0, result = result, verbose = verbose, scale_to_1 = scale_to_1)
-    #opt <- sbplx(l0, .gp.cv.optimize, lower=0, result = result, verbose = verbose)
-    result$l <- opt$par
-    #opt <- optimize(.gp.cv.optimize, c(0.1,2), result = result, verbose = verbose)
-    #result$l <- opt$minimum
+    if (length(l) > 1) {
+        library(nloptr)
+        opt <- neldermead(mean(l), .gp.cv.optimize, lower = l[1], upper=l[2], result = result, verbose = verbose, scale_to_1 = scale_to_1, control = nl.opts(list(xtol_rel = 1e-6, ftol_rel = 1e-6, ftol_abs = 1e-6)))
+        #opt <- sbplx(l0, .gp.cv.optimize, lower=0, result = result, verbose = verbose)
+        result$l <- opt$par
+        #opt <- optimize(.gp.cv.optimize, c(0.1,2), result = result, verbose = verbose)
+        #result$l <- opt$minimum
+    } else {
+        result$l <- l
+    }
 
     result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
     L <- chol(result$kxx)
@@ -328,8 +338,7 @@ fit.gp2 <- function(x, p, kernel, l0 = 0.2, scale_to_1=T, sigman = 1e-12, verbos
         } else {
             D <- 1
         }
-        d <- sqrt((2 * pi * result$l * result$l) ^ D)
-        integral <- sum(d * result$alpha)
+        integral <- result$kernel.integral(result$alpha, result$l, D)
         result$s <- 1.0 / integral
     } else {
         result$s <- 1.0

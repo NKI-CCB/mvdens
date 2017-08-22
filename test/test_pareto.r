@@ -1,5 +1,4 @@
-library(spd)
-
+source("R/marginals.r")
 source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
 
 cwd <- getwd()
@@ -12,15 +11,35 @@ setwd(cwd)
 fig1_samples <- model_extended$posterior$samples[, c(1, 10)]
 bounds <- rbind(c(0, 1), c(-1, 1))
 
-plot(fig1_samples)
-plot(fig1_samples[, 1])
-plot(fig1_samples[, 2])
+#plot(fig1_samples)
+#plot(fig1_samples[, 1])
+#plot(fig1_samples[, 2])
 
+source("R/marginals.r")
+marginal <- fit.marginal.ecdf.pareto(fig1_samples, bounds, pareto_threshold=0.1)
+
+x <- matrix(NA, 500, 2)
+for (i in 1:2) {
+    x[, i] <- seq(bounds[i, 1], bounds[i, 2], len = 500)
+}
+marginal$lower.tails[[2]]
+#marginal$lower.tails[[2]]$xi <- 20
+p <- marginal.pdf(marginal, x)
+
+plot(x[, 1], (p[, 1]))
+plot(x[, 2], (p[, 2]))
+plot(x[, 1], exp(p[, 1]))
+plot(x[, 2], exp(p[, 2]), ylim=c(0,1.5), type='l')
+
+plot(density(fig1_samples[, 2], bw = 'SJ', from=-1, to=1), ylim=c(0,1.5))
+
+
+
+library(spd)
 spds <- apply(fig1_samples, 2, spdfit, upper = 0.9, lower = 0.1)
+plot(spds[[2]])
 
-#plot(spds[[2]])
-
-
+dspd(x[,2], spds[[2]])
 
 x <- fig1_samples[, 2]
 plot(density(x, bw = "SJ"))

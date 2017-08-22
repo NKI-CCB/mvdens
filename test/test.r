@@ -4,7 +4,7 @@ source("gmm.r")
 source("pdf.r")
 source("transform.r")
 source("gp.r")
-source("marginals.r")
+source("R/marginals.r")
 source("vine_copula.r")
 source("cross_validation.r")
 
@@ -171,7 +171,7 @@ summary(marginal)
 marginal <- fit.marginal.mixture(x, bounds)
 summary(marginal)
 
-transformed <- transform.marginals(x, marginal)
+transformed <- marginal.transform(x, marginal)
 plot(transformed[,1])
 
 source("vine_copula.r")
@@ -191,7 +191,7 @@ plot(p, lposterior[1:100])
 vc <- fit.vine.copula(x, fit.marginal.parametric, trunclevel = 5, bounds = bounds)
 
 
-transformed <- transform.marginals(x, marginal)
+transformed <- marginal.transform(x, marginal)
 vc <- fit.vine.copula(1e-6+0.9999*transformed[1:101,], NULL, trunclevel = 5, verbose = T)
 pvc <- mdd.pdf(vc, transformed)
 p <- marginal.correct.p(marginal, x, pvc)

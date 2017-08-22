@@ -1,3 +1,9 @@
+#' Marginal ecdf
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T) {
     marginal <- list()
     marginal$type <- "ecdf"
@@ -35,6 +41,12 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
     return(structure(marginal, class = "mdd.marginal"))
 }
 
+#' Marginal parametric
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
     library(MASS)
 
@@ -94,6 +106,12 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
     return(structure(marginal, class = "mdd.marginal"))
 }
 
+#' Marginal mixture
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
     library(mixtools)
     library(betareg)
@@ -221,7 +239,6 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     theta <- c(xi0, beta0)
 
     negloglik <- function(theta, tmp) {
-        cat(theta, "\n")
         xi <- theta[1]
         beta <- theta[2]
         cond1 <- beta <= 0
@@ -236,8 +253,8 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
         f
     }
 
-    fit <- optim(theta, negloglik, tmp = excess)
-    #fit <- optim(theta, negloglik, lower = c(-Inf, 1e-6), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
+    #fit <- optim(theta, negloglik, tmp = excess)
+    fit <- optim(theta, negloglik, lower = c(0, 0), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
     #fit <- optimize(negloglikul, lower=0, upper=100, tmp = excess)
     #return(c(-upperlimit / fit$minimum, fit$minimum / upperlimit))
 
@@ -252,6 +269,22 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(1 - (1 + xi * z) ^ (-1/xi))
 }
 
+.pareto.pdf <- function(x, u, xi, beta, log = T) {
+    z <- (x - u) / beta
+    if (log) {
+        p <- log(1 / beta) - (1 / xi + 1) * log(1 + xi * z)
+    } else {
+        p <- (1 / beta) * (1 + xi * z) ^ (-1 / xi - 1)
+    }
+    return(p)
+}
+
+#' Marginal ecdf+pareto tail
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T, pareto_threshold = 0.1, ecdf_bounds_threshold = 1e-3) {
     marginal <- list()
     marginal$type <- "ecdf.pareto"
@@ -276,50 +309,70 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
         }
     }
 
-    marginal$lower.tails <- list(rep(NULL, ncol(x)))
-    marginal$upper.tails <- list(rep(NULL, ncol(x)))
     for (i in 1:ncol(x)) {
         if (use.pareto.tail[i, 1]) {
-            u <- quantile(x[, i], pareto_threshold)
+            u <- as.numeric(quantile(x[, i], pareto_threshold))
+
+            dp <- sum(dnorm(u, marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x[[i]])
+
             marginal$lower.tails[[i]] <- .fit.pareto.tail(-x[, i], - u)
             marginal$lower.tails[[i]]$u <- u
+            marginal$lower.tails[[i]]$q <- pareto_threshold
+            marginal$lower.tails[[i]]$d <- dp
+        } else {
+            marginal$lower.tails[[i]] <- NULL
         }
         if (use.pareto.tail[i, 2]) {
-            u <- quantile(x[, i], 1 - pareto_threshold)
-            marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], quantile(x[, i], u))
-            marginal$lower.tails[[i]]$u <- u
+            u <- as.numeric(quantile(x[, i], 1 - pareto_threshold))
+
+            dp <- sum(dnorm(u, marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x[[i]])
+
+            marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], u)
+            marginal$upper.tails[[i]]$u <- u
+            marginal$upper.tails[[i]]$q <- 1 - pareto_threshold
+            marginal$upper.tails[[i]]$d <- dp
+        } else {
+            marginal$upper.tails[[i]] <- NULL
         }
     }
 
-    return(marginal)
+    return(structure(marginal, class = "mdd.marginal"))
 }
 
-transform.marginals <- function(x, marginal) {
+#' Transform variables to U[0,1]
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
+marginal.transform <- function(x, marginal) {
     stopifnot(class(marginal) == "mdd.marginal")
 
     if (!is.matrix(x)) {
-        x <- as.matrix(x)
+        x <- t(as.matrix(x))
     }
     transformed <- matrix(nrow = nrow(x), ncol = ncol(x))
 
     if (marginal$type == "ecdf") {
         for (i in 1:ncol(x)) {
-            transformed[, i] <- 1e-10 + (1 - 2e-10) * marginal$ecdfs[[i]](x[, i])
+            transformed[, i] <- marginal$ecdfs[[i]](x[, i])
         }
     } else if (marginal$type == "ecdf.pareto") {
         for (i in 1:ncol(x)) {
             is_body <- rep(T, nrow(x))
             if (!is.null(marginal$lower.tails[[i]])) {
                 is_tail <- x[, i] < marginal$lower.tails[[i]]$u
-                transformed[is_tail, i] <- .pareto.cdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta)
+                transformed[is_tail, i] <- marginal$lower.tails[[i]]$q * (1 - .pareto.cdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta))
                 is_body[is_tail] <- F
             }
             if (!is.null(marginal$upper.tails[[i]])) {
                 is_tail <- x[, i] > marginal$upper.tails[[i]]$u
-                transformed[is_tail, i] <- .pareto.cdf(x[is_tail, i], marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta)
+                transformed[is_tail, i] <- marginal$upper.tails[[i]]$q + (1 - marginal$upper.tails[[i]]$q) * .pareto.cdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta)
                 is_body[is_tail] <- F
             }
-            transformed[is_body, i] <- 1e-10 + (1 - 2e-10) * marginal$ecdfs[[i]](x[is_body, i])
+            transformed[is_body, i] <- marginal$ecdf$ecdfs[[i]](x[is_body, i])
         }
     } else if (marginal$type == "parametric") {
         for (i in 1:ncol(x)) {
@@ -375,6 +428,12 @@ reverse.transform.marginals <- function(transformed, marginal) {
     return(x)
 }
 
+#' PDF of marginal
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 marginal.pdf <- function(marginal, x, log = T) {
     stopifnot(class(marginal) == "mdd.marginal")
     stopifnot(log)
@@ -390,6 +449,23 @@ marginal.pdf <- function(marginal, x, log = T) {
             }
         }
     } else if (marginal$type == "ecdf.pareto") {
+        for (i in 1:ncol(x)) {
+            is_body <- rep(T, nrow(x))
+            if (!is.null(marginal$lower.tails[[i]])) {
+                is_tail <- x[, i] < marginal$lower.tails[[i]]$u
+                p[is_tail, i] <- log(marginal$lower.tails[[i]]$beta * marginal$lower.tails[[i]]$d) + .pareto.pdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta, log = T)
+                is_body[is_tail] <- F
+            }
+            if (!is.null(marginal$upper.tails[[i]])) {
+                is_tail <- x[, i] > marginal$upper.tails[[i]]$u
+                p[is_tail, i] <- log(marginal$upper.tails[[i]]$beta * marginal$upper.tails[[i]]$d) + .pareto.pdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta, log = T)
+                is_body[is_tail] <- F
+            }
+            for (j in which(is_body)) {
+                dp <- sum(dnorm(x[j, i], marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+                p[j, i] <- log(dp) - log(length(marginal$ecdf$x[[i]]))
+            }
+        }
     } else if (marginal$type == "parametric") {
         for (i in 1:ncol(x)) {
             if (marginal$dists[[i]]$type == "beta") {

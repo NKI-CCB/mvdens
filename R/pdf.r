@@ -2,6 +2,14 @@
 #source("gp.r")
 #source("vine_copula.r")
 
+#' Evaluate the probability density function
+#'
+#' description
+#' @param fit 
+#' @param x
+#' @param log
+#' @export
+#' @examples
 mdd.pdf <- function(mddens_fit, x, log = FALSE) {
     if (mddens_fit$type == "kde") {
         return(.evaluate.kde(mddens_fit, x, log))

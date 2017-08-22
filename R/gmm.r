@@ -125,7 +125,19 @@ library(tmvtnorm)
     return(fit)
 }
 
-fit.gmm <- function(x, K, epsilon = 0.01, maxsteps = 100, verbose = F) {
+#' Fit a Gaussian mixture
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K
+#' @export
+#' @examples
+fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+    nparam <- K * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K - 1
+    if (nparam >= nrow(x)) {
+        warning("More parameters than samples, consider lowering K")
+    }
+
     fit <- .fit.gmm.internal(x, K, truncated = F, bounds = NA, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
 
     result <- list()
@@ -135,13 +147,19 @@ fit.gmm <- function(x, K, epsilon = 0.01, maxsteps = 100, verbose = F) {
     result$covariances <- fit$covariances
     result$proportions <- fit$component_weights
     result$log_likelihood <- fit$logl
-    nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
     result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
     result$assignment <- apply(fit$weights, 1, which.max)
     return(structure(result, class = "mdd.density"))
 }
 
-fit.gmm.transformed <- function(x, K, bounds, epsilon = 0.01, maxsteps = 100, verbose = F) {
+#' Fit a transformed Gaussian mixture
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K
+#' @export
+#' @examples
+fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$type <- "gmm.transformed"
     result$transform.bounds <- bounds
@@ -150,7 +168,14 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 0.01, maxsteps = 100, ve
     return(structure(result, class = "mdd.density"))
 }
 
-fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 0.01, maxsteps = 100, verbose = F) {
+#' Fit a truncated Gaussian mixture
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K
+#' @export
+#' @examples
+fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
 
     result <- list()
@@ -167,7 +192,14 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(structure(result, class = "mdd.density"))
 }
 
-gmm.BIC <- function(x, K = 1:9, epsilon = 0.01, maxsteps = 100, verbose = F) {
+#' Calculate BIC of a Gaussian mixture across a range of number of components
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K
+#' @export
+#' @examples
+gmm.BIC <- function(x, K = 1:6, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
     result$BIC <- rep(NA, length(K))
@@ -176,28 +208,27 @@ gmm.BIC <- function(x, K = 1:9, epsilon = 0.01, maxsteps = 100, verbose = F) {
         if (verbose) {
             cat("Fitting K=", K[k], "\n")
         }
-        result$fits[[k]] <- fit.gmm(x, K[k], epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-        result$BIC[k] <- result$fits[[k]]$BIC
+
+        nparam <- K[k] * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K[k] - 1
+        if (k > 1 && nparam >= nrow(x)) {
+            result$fits[[k]] <- NULL
+            result$BIC[k] <- NA
+        } else {
+            result$fits[[k]] <- fit.gmm(x, K[k], epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+            result$BIC[k] <- result$fits[[k]]$BIC
+        }
     }
     return(result)
 }
 
-gmm.transformed.BIC <- function(x, K = 1:9, bounds, epsilon = 0.01, maxsteps = 100, verbose = F) {
-  result <- list()
-  result$K <- K
-  result$BIC <- rep(NA, length(K))
-  result$fits <- list()
-  for (k in 1:length(K)) {
-    if (verbose) {
-      cat("Fitting K=", K[k], "\n")
-    }
-    result$fits[[k]] <- fit.gmm.transformed(x, K[k], bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-    result$BIC[k] <- result$fits[[k]]$gmm$BIC
-  }
-  return(result)
-}
-
-gmm.truncated.BIC <- function(x, K = 1:9, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 0.01, maxsteps = 100, verbose = F) {
+#' Calculate BIC of a transformed Gaussian mixture across a range of number of components
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K
+#' @export
+#' @examples
+gmm.transformed.BIC <- function(x, K = 1:6, bounds, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
     result$BIC <- rep(NA, length(K))
@@ -206,8 +237,42 @@ gmm.truncated.BIC <- function(x, K = 1:9, bounds = cbind(rep(-Inf, ncol(x)), rep
         if (verbose) {
             cat("Fitting K=", K[k], "\n")
         }
-        result$fits[[k]] <- fit.gmm.truncated(x, K[k], bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-        result$BIC[k] <- result$fits[[k]]$BIC
+        nparam <- K[k] * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K[k] - 1
+        if (k > 1 && nparam >= nrow(x)) {
+            result$fits[[k]] <- NULL
+            result$BIC[k] <- NA
+        } else {
+            result$fits[[k]] <- fit.gmm.transformed(x, K[k], bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+            result$BIC[k] <- result$fits[[k]]$gmm$BIC
+        }
+    }
+    return(result)
+}
+
+#' Calculate BIC of a truncated Gaussian mixture across a range of number of components
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K
+#' @export
+#' @examples
+gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+    result <- list()
+    result$K <- K
+    result$BIC <- rep(NA, length(K))
+    result$fits <- list()
+    for (k in 1:length(K)) {
+        if (verbose) {
+            cat("Fitting K=", K[k], "\n")
+        }
+        nparam <- K[k] * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K[k] - 1
+        if (k > 1 && nparam >= nrow(x)) {
+            result$fits[[k]] <- NULL
+            result$BIC[k] <- NA
+        } else {
+            result$fits[[k]] <- fit.gmm.truncated(x, K[k], bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+            result$BIC[k] <- result$fits[[k]]$BIC
+        }
     }
     return(result)
 }

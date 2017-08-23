@@ -142,12 +142,11 @@
         ktest <- result$kernel(xtest, xtrain, l)
 
         integral <- result$kernel.integral(alpha, l, D)
-        if (integral > 0) {
-            f <- (ktest %*% alpha)
-            diff <- result$p[test_ix] - f
-            sse[fi] <- sum(diff ^ 2)
-        } else {
-            sse[fi] <- 1e100
+        f <- (ktest %*% alpha)
+        diff <- result$p[test_ix] - f
+        sse[fi] <- sum(diff ^ 2)
+        if (integral < 0) {
+            sse[fi] <- sse[fi] * 1e10
         }
 
     }

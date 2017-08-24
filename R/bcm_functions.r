@@ -60,6 +60,11 @@
     return(xml_root)
 }
 
+#' Export a mvdens fit as xml that can be used as prior in the BCM software
+#'
+#' http://ccb.nki.nl/software/bcm
+#' @export
+#' @examples
 mdd.export.bcm <- function(bcm.model, fit, outfn)
 {
     xml_root <- xmlNode("prior")
@@ -68,13 +73,10 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
 
     if (fit$type == "kde") {
         xmlAttrs(xml_root) <- c(type = "KDE")
-        for (i in 1:fit$K) {
-            comp <- xmlNode("component")
-            xmlAttrs(comp) <- c(weight = fit$proportions[i],
-                      mean = paste(fit$centers[i,], collapse = ";"),
-                      covariance = paste(apply(fit$covariances[[i]], 2, paste, collapse = ","), collapse = ";"))
-            xml_root$children[[length(xml_root$children) + 1]] <- comp
-        }
+        comp <- xmlNode("kde")
+        xmlAttrs(comp) <- c(samples = paste(apply(fit$x, 2, paste, collapse = ","), collapse = ";"),
+                            H = paste(apply(fit$H, 2, paste, collapse = ","), collapse = ";"))
+        xml_root$children[[length(xml_root$children) + 1]] <- comp
     } else if (fit$type == "gmm") {
         xmlAttrs(xml_root) <- c(type = "GMM")
         for (i in 1:fit$K) {
@@ -134,8 +136,8 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                 dist <- fit$marginal$dists[[i]]
                 xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = dist$type, p = paste(dist$p, collapse = ";"))
                 if (dist$type == "normal") {
-                    xmlAttrs(margin_node) <- c(mu = paste(dist$mean, collapse = ";"),
-                                               sigma = paste(dist$sd, collapse = ";"))
+                    xmlAttrs(margin_node) <- c(mu = paste(dist$mu, collapse = ";"),
+                                               sigma = paste(dist$sigma, collapse = ";"))
                 } else if (dist$type == "beta") {
                     xmlAttrs(margin_node) <- c(a = paste(dist$a, collapse = ";"),
                                                b = paste(dist$b, collapse = ";"),
@@ -170,6 +172,12 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                                  x = paste(apply(fit$x, 2, paste, collapse = ","), collapse = ";"),
                                  p = paste(fit$p, collapse=";"))
         xml_root$children[[length(xml_root$children) + 1]] <- gp_params
+    } else if (fit$type == "resample") {
+        xmlAttrs(xml_root) <- c(type = "resample")
+        comp <- xmlNode("samples")
+        xmlAttrs(comp) <- c(samples = paste(apply(fit$x, 2, paste, collapse = ","), collapse = ";"),
+                            p = paste(fit$p, collapse = ";"))
+        xml_root$children[[length(xml_root$children) + 1]] <- comp
     }
 
     saveXML(xml_root, outfn)

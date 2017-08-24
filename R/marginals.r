@@ -85,8 +85,8 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             # [-inf,inf] -> normal
             marginal$dists[[i]] <- list()
             marginal$dists[[i]]$type <- "normal"
-            marginal$dists[[i]]$mean <- mean(x[, i])
-            marginal$dists[[i]]$sd <- sd(x[, i])
+            marginal$dists[[i]]$mu <- mean(x[, i])
+            marginal$dists[[i]]$sigma <- sd(x[, i])
         } else {
             # [a,b] -> scaled beta
             a <- bounds[i, 1];
@@ -379,7 +379,7 @@ marginal.transform <- function(x, marginal) {
             if (marginal$dists[[i]]$type == "beta") {
                 transformed[, i] <- pbeta((x[, i] - marginal$dists[[i]]$min) / (marginal$dists[[i]]$max - marginal$dists[[i]]$min), marginal$dists[[i]]$shape1, marginal$dists[[i]]$shape2)
             } else if (marginal$dists[[i]]$type == "normal") {
-                transformed[, i] <- pnorm(x[, i], marginal$dists[[i]]$mean, marginal$dists[[i]]$sd)
+                transformed[, i] <- pnorm(x[, i], marginal$dists[[i]]$mu, marginal$dists[[i]]$sigma)
             } else if (marginal$dists[[i]]$type == "gamma") {
                 transformed[, i] <- pgamma(x[, i], shape = marginal$dists[[i]]$shape, scale = marginal$dists[[i]]$scale)
             }
@@ -473,7 +473,7 @@ marginal.pdf <- function(marginal, x, log = T) {
                 b <- marginal$dists[[i]]$max
                 p[, i] <- dbeta((x[, i] - a) / (b - a), marginal$dists[[i]]$shape1, marginal$dists[[i]]$shape2, log = T) - log(b - a)
             } else if (marginal$dists[[i]]$type == "normal") {
-                p[, i] <- dnorm(x[, i], marginal$dists[[i]]$mean, marginal$dists[[i]]$sd, log = T)
+                p[, i] <- dnorm(x[, i], marginal$dists[[i]]$mu, marginal$dists[[i]]$sd, log = T)
             } else if (marginal$dists[[i]]$type == "gamma") {
                 p[, i] <- dgamma(x[, i], shape = marginal$dists[[i]]$shape, scale = marginal$dists[[i]]$scale, log = T)
             }

@@ -17,7 +17,6 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
         result$marginal <- NULL
         transformed <- x
     }
-    cat("indep test", indeptest, "\n")
     result$RVM <- RVineStructureSelect(transformed, cores = 1, trunclevel = trunclevel, indeptest = indeptest, progress = verbose)
     result$RVM$names <- colnames(x)
     return(structure(result, class = "mdd.density"))

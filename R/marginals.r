@@ -321,7 +321,7 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
             marginal$lower.tails[[i]]$q <- pareto_threshold
             marginal$lower.tails[[i]]$d <- dp
         } else {
-            marginal$lower.tails[[i]] <- NULL
+            marginal$lower.tails[[i]] <- list()
         }
         if (use.pareto.tail[i, 2]) {
             u <- as.numeric(quantile(x[, i], 1 - pareto_threshold))
@@ -334,7 +334,7 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
             marginal$upper.tails[[i]]$q <- 1 - pareto_threshold
             marginal$upper.tails[[i]]$d <- dp
         } else {
-            marginal$upper.tails[[i]] <- NULL
+            marginal$upper.tails[[i]] <- list()
         }
     }
 
@@ -362,12 +362,12 @@ marginal.transform <- function(x, marginal) {
     } else if (marginal$type == "ecdf.pareto") {
         for (i in 1:ncol(x)) {
             is_body <- rep(T, nrow(x))
-            if (!is.null(marginal$lower.tails[[i]])) {
+            if (length(marginal$lower.tails[[i]]) > 0) {
                 is_tail <- x[, i] < marginal$lower.tails[[i]]$u
                 transformed[is_tail, i] <- marginal$lower.tails[[i]]$q * (1 - .pareto.cdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta))
                 is_body[is_tail] <- F
             }
-            if (!is.null(marginal$upper.tails[[i]])) {
+            if (length(marginal$upper.tails[[i]]) > 0) {
                 is_tail <- x[, i] > marginal$upper.tails[[i]]$u
                 transformed[is_tail, i] <- marginal$upper.tails[[i]]$q + (1 - marginal$upper.tails[[i]]$q) * .pareto.cdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta)
                 is_body[is_tail] <- F
@@ -451,12 +451,12 @@ marginal.pdf <- function(marginal, x, log = T) {
     } else if (marginal$type == "ecdf.pareto") {
         for (i in 1:ncol(x)) {
             is_body <- rep(T, nrow(x))
-            if (!is.null(marginal$lower.tails[[i]])) {
+            if (length(marginal$lower.tails[[i]]) > 0) {
                 is_tail <- x[, i] < marginal$lower.tails[[i]]$u
                 p[is_tail, i] <- log(marginal$lower.tails[[i]]$beta * marginal$lower.tails[[i]]$d) + .pareto.pdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta, log = T)
                 is_body[is_tail] <- F
             }
-            if (!is.null(marginal$upper.tails[[i]])) {
+            if (length(marginal$upper.tails[[i]]) > 0) {
                 is_tail <- x[, i] > marginal$upper.tails[[i]]$u
                 p[is_tail, i] <- log(marginal$upper.tails[[i]]$beta * marginal$upper.tails[[i]]$d) + .pareto.pdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta, log = T)
                 is_body[is_tail] <- F

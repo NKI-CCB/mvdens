@@ -122,6 +122,28 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
                                            type = "ecdf",
                                            bw = fit$marginal$bw[i],
                                            x = paste(sort(fit$marginal$x[[i]]), collapse = ";"))
+            } else if (fit$marginal$type == "ecdf.pareto") {
+
+                xmlAttrs(margin_node) <- c(name = bcm.model$variables[i],
+                                           type = "ecdf-pareto",
+                                           bw = fit$marginal$ecdf$bw[i],
+                                           x = paste(sort(fit$marginal$ecdf$x[[i]]), collapse = ";"))
+                if (length(fit$marginal$lower.tails[[i]]) > 0) {
+                    xmlAttrs(margin_node) <- c(xmlAttrs(margin_node),
+                                                lxi = fit$marginal$lower.tails[[i]]$xi,
+                                                lbeta = fit$marginal$lower.tails[[i]]$beta,
+                                                lu = fit$marginal$lower.tails[[i]]$u,
+                                                lq = fit$marginal$lower.tails[[i]]$q,
+                                                ld = fit$marginal$lower.tails[[i]]$d)
+                }
+                if (length(fit$marginal$upper.tails[[i]]) > 0) {
+                    xmlAttrs(margin_node) <- c(xmlAttrs(margin_node),
+                                           uxi = fit$marginal$upper.tails[[i]]$xi,
+                                           ubeta = fit$marginal$upper.tails[[i]]$beta,
+                                           uu = fit$marginal$upper.tails[[i]]$u,
+                                           uq = fit$marginal$upper.tails[[i]]$q,
+                                           ud = fit$marginal$upper.tails[[i]]$d)
+                }
             } else if (fit$marginal$type == "parametric") {
                 dist <- fit$marginal$dists[[i]]
                 xmlAttrs(margin_node) <- c(name = bcm.model$variables[i], type = dist$type)

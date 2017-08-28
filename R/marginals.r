@@ -279,6 +279,10 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(p)
 }
 
+.pareto.quantile <- function(x, u, xi, beta) {
+    return(u + beta * ((1.0 - x) ^ (-xi) - 1.0) / xi);
+}
+
 #' Marginal ecdf+pareto tail
 #'
 #' description
@@ -409,6 +413,12 @@ marginal.transform <- function(x, marginal) {
     return(transformed)
 }
 
+#' Reverse transform variables from U[0,1]
+#'
+#' description
+#' @param transformed Matrix or vector of transformed samples. For matrices, rows are samples and columns are variables.
+#' @export
+#' @examples
 reverse.transform.marginals <- function(transformed, marginal) {
     stopifnot(class(marginal) == "mdd.marginal")
 
@@ -419,8 +429,35 @@ reverse.transform.marginals <- function(transformed, marginal) {
 
     if (marginal$type == "ecdf") {
     } else if (marginal$type == "ecdf.pareto") {
+        for (i in 1:ncol(transformed)) {
+            is_body <- rep(T, nrow(x))
+            if (length(marginal$lower.tails[[i]]) > 0) {
+                tail <- marginal$lower.tails[[i]]
+                is_tail <- transformed[, i] < tail$q
+                x[is_tail, i] <-  -.pareto.quantile(1.0 - (transformed[is_tail, i] / tail$q), - tail$u, tail$xi, tail$beta);
+                is_body[is_tail] <- F
+            }
+            if (length(marginal$upper.tails[[i]]) > 0) {
+                tail <- marginal$upper.tails[[i]]
+                is_tail <- transformed[, i] > tail$q
+                x[is_tail, i] <- .pareto.quantile((transformed[is_tail, i] - tail$q) / (1.0 - tail$q), tail$u, tail$xi, tail$beta);
+                is_body[is_tail] <- F
+            }
+            x[is_body, i] <- quantile(marginal$ecdf$ecdfs[[i]], transformed[is_body, i], type = 4)
+        }
     } else if (marginal$type == "parametric") {
     } else if (marginal$type == "mixture") {
+        for (i in 1:ncol(transformed)) {
+            margin <- marginal$dists[[i]]
+            ix <- sample(length(margin$p), nrow(x), replace = T, prob = margin$p)
+            if (margin$type == "beta") {
+                x[, i] <- margin$min + qbeta(transformed[, i], margin$a[ix], margin$b[ix]) * (margin$max - margin$min)
+            } else if (margin$type == "beta") {
+                x[, i] <- qnorm(transformed[, i], margin$mu[ix], margin$sigma[ix])
+            } else if (margin$type == "beta") {
+                x[, i] <- qbeta(transformed[, i], shape = margin$shape[ix], scale = margin$scale[ix])
+            }
+        }
     } else {
         stop("Unknown marginal type")
     }

@@ -77,6 +77,13 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
         xmlAttrs(comp) <- c(samples = paste(apply(fit$x, 2, paste, collapse = ","), collapse = ";"),
                             H = paste(apply(fit$H, 2, paste, collapse = ","), collapse = ";"))
         xml_root$children[[length(xml_root$children) + 1]] <- comp
+    } else if (fit$type == "kde.transformed") {
+        xmlAttrs(xml_root) <- c(type = "KDE")
+        xml_root <- .write_transformations_to_xml(bcm.model, xml_root)
+        comp <- xmlNode("kde")
+        xmlAttrs(comp) <- c(samples = paste(apply(fit$kde$x, 2, paste, collapse = ","), collapse = ";"),
+                            H = paste(apply(fit$kde$H, 2, paste, collapse = ","), collapse = ";"))
+        xml_root$children[[length(xml_root$children) + 1]] <- comp
     } else if (fit$type == "gmm") {
         xmlAttrs(xml_root) <- c(type = "GMM")
         for (i in 1:fit$K) {

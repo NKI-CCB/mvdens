@@ -5,7 +5,7 @@
 .dlogit_scale <- function(x, a, b) {(b - a) / ((a - x) * (x - b)) }
 .logistic_scale <- function(x, a, b) { ex <- exp(x); (a + b * ex) / (ex + 1) }
 
-mdd.transform_to_unbounded <- function(x, bounds) {
+mvd.transform_to_unbounded <- function(x, bounds) {
     transformed <- matrix(NA, nrow = nrow(x), ncol = ncol(x))
     for (i in 1:ncol(x)) {
         if (bounds[i, 1] >= bounds[i, 2]) {
@@ -18,6 +18,9 @@ mdd.transform_to_unbounded <- function(x, bounds) {
         } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
             # [0,inf] -> log
             transformed[, i] <- log(x[, i])
+        } else if (bounds[i, 1] == -Inf && bounds[i, 2] == 0) {
+            # [0,inf] -> log
+            transformed[, i] <- log(-x[, i])
         } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
             # [-inf,inf] -> no transform
             transformed[, i] <- x[, i]
@@ -29,7 +32,7 @@ mdd.transform_to_unbounded <- function(x, bounds) {
     return(transformed)
 }
 
-mdd.transform_from_unbounded <- function(transformed_x, bounds) {
+mvd.transform_from_unbounded <- function(transformed_x, bounds) {
     x <- matrix(NA, nrow = nrow(x), ncol = ncol(x))
     for (i in 1:ncol(x)) {
         if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
@@ -38,6 +41,9 @@ mdd.transform_from_unbounded <- function(transformed_x, bounds) {
         } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
             # [0,inf] -> log -> inverse = exp
             x[, i] <- exp(transformed_x[, i])
+        } else if (bounds[i, 1] == -Inf && bounds[i, 2] == 0) {
+            # [0,inf] -> log -> inverse = exp
+            x[, i] <- -exp(transformed_x[, i])
         } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
             # [-inf,inf] -> no transform
             x[, i] <- transformed_x[, i]
@@ -49,13 +55,16 @@ mdd.transform_from_unbounded <- function(transformed_x, bounds) {
     return(x)
 }
 
-mdd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
+mvd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
     if (log) {
         for (i in 1:ncol(x)) {
             if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
                 # [0,1] -> logit -> derivative = dlogit
                 p <- p + log(.dlogit(x[, i]))
             } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
+                # [0,inf] -> log -> derivative = 1/log
+                p <- p - log(x[, i])
+            } else if (bounds[i, 1] == -Inf && bounds[i, 2] == 0) {
                 # [0,inf] -> log -> derivative = 1/log
                 p <- p - log(x[, i])
             } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
@@ -73,6 +82,9 @@ mdd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
             } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
                 # [0,inf] ->log(x) -> 1/x
                 p <- p / x[, i]
+            } else if (bounds[i, 1] == -Inf && bounds[i, 2] == 0) {
+                # [0,inf] ->log(x) -> 1/x
+                p <- p / x[, i]
             } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
                 # [-inf,inf] -> no transform
             } else {
@@ -82,4 +94,18 @@ mdd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
         }
     }
     return(p)
+}
+
+mvd.transform_name <- function(bounds, i) {
+    if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
+        return("logit")
+    } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
+        return("log")
+    } else if (bounds[i, 1] == -Inf && bounds[i, 2] == 0) {
+        return("negative log")
+    } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
+        return("no transform")
+    } else {
+        return("scaled logit")
+    }
 }

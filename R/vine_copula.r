@@ -3,8 +3,13 @@ library(VineCopula)
 
 #' Fit a vine copula
 #'
-#' description
+#' Fit a vine copula density function, using one of the marginal function for the marginal transformations, and using VineCopula::RVineStructureSelect for the vine copula function.
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param marginalfn One of the marginal fitting functions.
+#' @param bounds Dx2 matrix of boundaries
+#' @param trunclevel Relayed to the VineCopula::RVineStructureSelect 
+#' @param indeptest Relayed to VineCopula::RVineStructureSelect 
+#' @param verbose Relayed to VineCopula::RVineStructureSelect 
 #' @export
 #' @examples
 fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), trunclevel = NA, indeptest = F, verbose = F) {
@@ -19,13 +24,14 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
     }
     result$RVM <- RVineStructureSelect(transformed, cores = 1, trunclevel = trunclevel, indeptest = indeptest, progress = verbose)
     result$RVM$names <- colnames(x)
-    return(structure(result, class = "mdd.density"))
+    return(structure(result, class = "mvd.density"))
 }
 
 #' Evaluate a vine copula
 #'
 #' description
-#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param fit An mvd.density object obtained from fit.vine.copula
+#' @param x Matrix or vector of samples at which to evaluate the vine copula. For matrices, rows are samples and columns are variables.
 #' @export
 #' @examples
 evaluate.vine.copula <- function(fit, x, log = F) {

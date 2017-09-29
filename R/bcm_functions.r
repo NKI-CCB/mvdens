@@ -60,12 +60,23 @@
     return(xml_root)
 }
 
-#' Export a mvdens fit as xml that can be used as prior in the BCM software
+#' Export a mvdens density object as xml that can be used as prior in the BCM software.
 #'
-#' http://ccb.nki.nl/software/bcm
+#' See http://ccb.nki.nl/software/bcm
+#' @param bcm.model A BCM model results object obtained from one of BCM's load.model functions
+#' @param fit The mvdens fit object to export
+#' @param outfn Output filename
 #' @export
 #' @examples
-mdd.export.bcm <- function(bcm.model, fit, outfn)
+#' # Assumes that BCM is installed, an environment variable BCM_ROOT is specified, and there is a model named "model" with output directory "output_dir" in the current working folder
+#' source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
+#' model <- load_sbmlpd_model("model", "output_dir")
+#' x <- model$posterior$samples[sample_ix,]
+#' p <- model$posterior$lposterior[sample_ix]
+#' bounds <- prior_bounds_all(model, q = c(0, 1))
+#' gmm <- gmm.BIC(x, K = 1:6, optimal.only = T)
+#' mvd.export.bcm(model, gmm, "posterior_gmm.xml")
+mvd.export.bcm <- function(bcm.model, fit, outfn)
 {
     xml_root <- xmlNode("prior")
     xml_root <- .write_variables_to_xml(bcm.model, xml_root)
@@ -204,74 +215,3 @@ mdd.export.bcm <- function(bcm.model, fit, outfn)
 
     saveXML(xml_root, outfn)
 }
-
-#source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
-
-#cwd <- getwd()
-#setwd("D:/Research/projects/52-approximate-mc-output-paper/")
-#model <- load_model("lotka-volterra/lotka_volterra_trapperonly", "output_pt_16_1000", "lotka_volterra_trapperonly.xml")
-#model_t0 <- load_model("lotka-volterra/lotka_volterra_trapperonly", "output_smc_t0", "lotka_volterra_trapperonly.xml")
-#setwd(cwd)
-
-#bounds <- prior_bounds_all(model, q=c(0,1))
-
-#source("gmm.r")
-#gmm <- fit.gmm(model$posterior$samples, 4)
-#gmmbic <- gmm.BIC(model$posterior$samples)
-#plot(gmmbic$BIC)
-#mdd.export.bcm(model, gmmbic$fits[[5]], "trapper_posterior_gmm5.xml")
-
-#source("vine_copula.r")
-
-#vc <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.ecdf)
-#mdd.export.bcm(model, vc, "trapper_posterior_vc_ecdf.xml")
-
-#vc_parametric <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.parametric)
-#mdd.export.bcm(model, vc_parametric, "trapper_posterior_vc_parametric.xml")
-
-#vc_mixture <- fit.vine.copula(model$posterior$samples, bounds = bounds, marginalfn = fit.marginal.mixture)
-#mdd.export.bcm(model, vc_mixture, "trapper_posterior_vc_mixture.xml")
-
-#source("gp.r")
-
-#subset <- 1:1000
-#gp <- fit.gp(model$posterior$samples[subset,], model$posterior$lposterior[subset], "se", l = c(0.01, 10), b1 = min(model$posterior$lposterior[subset]) - 5, b2 = 0, verbose=T)
-#mdd.export.bcm(model, gp, "trapper_posterior_gp_se.xml")
-
-#p2 <- evaluate.gp(gp, model$posterior$samples[subset,])
-#plot(model$posterior$samples[subset, 6], p2, xlim = c(0, 2))
-
-#testx <- matrix(NA, 500, 9)
-#for (i in 1:500) {
-    #testx[i,] <- gp$x[i,]
-#}
-#testx[, 6] <- seq(0, 2, length.out = 500)
-
-#p2 <- evaluate.gp(gp, testx)
-#plot(testx[, 6], p2)
-
-
-#validate <- evaluate.gp(gp, model$posterior$samples[501:600,])
-#plot(model$posterior$lposterior[501:600], validate)
-
-#t0ix <- sample(which(!is.infinite(model_t0$posterior$llikelihood)), size = 100)
-#x <- rbind(model$posterior$samples[subset,], model_t0$posterior$samples[t0ix,])
-#p <- c(model$posterior$lposterior[subset], model_t0$posterior$lprior[t0ix] + model_t0$posterior$llikelihood[t0ix])
-
-#gp <- fit.gp(x, p, "se", l=c(0.01, 10), b1=min(p), b2=0, sigman=1e-10, verbose=T)
-#gp <- fit.gp(x, p, "se", l = c(0.01, 10), b1 = c(-4000, 0), b2 = c(-10,0), sigman = 1e-10, verbose = T)
-#mdd.export.bcm(model, gp, "trapper_posterior_gp_se_added.xml")
-
-#gpfull <- fit.gp(model$posterior$samples,
-                 #model$posterior$lposterior,
-                 #"se",
-                 #l = gp$l,
-                 #b1 = gp$b1,
-                 #b2 = gp$b2)
-#gpfull <- fit.gp(rbind(model$posterior$samples, model_t0$posterior$samples[t0ix,]),
-                 #c(model$posterior$lposterior, model_t0$posterior$lprior[t0ix] + model_t0$posterior$llikelihood[t0ix]),
-                 #"se",
-                 #l = gp$l,
-                 #b1 = gp$b1,
-                 #b2 = gp$b2)
-#mdd.export.bcm(model, gpfull, "trapper_posterior_gp_se.xml")

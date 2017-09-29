@@ -1,7 +1,3 @@
-library(mvtnorm)
-library(tmvtnorm)
-
-#source("utils.r")
 
 .assign_kmeanspp <- function(x, K) {
     stopifnot(K >= 1)
@@ -129,7 +125,11 @@ library(tmvtnorm)
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param K
+#' @param K Integer specifying the number of components of the Gaussian mixture.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param epsilon For the EM algorithm, stop when the difference in log likelihood is less than this epsilon.
+#' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
+#' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
 #' @examples
 fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
@@ -149,30 +149,37 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result$log_likelihood <- fit$logl
     result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
     result$assignment <- apply(fit$weights, 1, which.max)
-    return(structure(result, class = "mdd.density"))
+    return(structure(result, class = "mvd.density"))
 }
 
 #' Fit a transformed Gaussian mixture
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param K
+#' @param K Integer specifying the number of components of the Gaussian mixture.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param epsilon For the EM algorithm, stop when the difference in log likelihood is less than this epsilon.
+#' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
+#' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
 #' @examples
 fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$type <- "gmm.transformed"
     result$transform.bounds <- bounds
-    transformed <- mdd.transform_to_unbounded(x, bounds)
+    transformed <- mvd.transform_to_unbounded(x, bounds)
     result$gmm <- fit.gmm(transformed, K, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-    return(structure(result, class = "mdd.density"))
+    return(structure(result, class = "mvd.density"))
 }
 
 #' Fit a truncated Gaussian mixture
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param K
+#' @param K Integer specifying the number of components of the Gaussian mixture.
+#' @param epsilon For the EM algorithm, stop when the difference in log likelihood is less than this epsilon.
+#' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
+#' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
 #' @examples
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 1e-5, maxsteps = 1000, verbose = F) {
@@ -189,17 +196,21 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
     result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
     result$assignment <- apply(fit$weights, 1, which.max)
-    return(structure(result, class = "mdd.density"))
+    return(structure(result, class = "mvd.density"))
 }
 
 #' Calculate BIC of a Gaussian mixture across a range of number of components
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param K
+#' @param K Vector specifying the number of components to test
+#' @param optimal.only If TRUE, directly return only the GMM with optimal number of components; otherwise return a structure with fits for all tested number of components
+#' @param epsilon See fit.gmm
+#' @param maxsteps See fit.gmm
+#' @param verbose 
 #' @export
 #' @examples
-gmm.BIC <- function(x, K = 1:6, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.BIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
     result$BIC <- rep(NA, length(K))
@@ -218,17 +229,27 @@ gmm.BIC <- function(x, K = 1:6, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
             result$BIC[k] <- result$fits[[k]]$BIC
         }
     }
-    return(result)
+    if (optimal.only) {
+        ix <- which.min(result$BIC)
+        return(result$fits[[ix]])
+    } else {
+        return(result)
+    }
 }
 
 #' Calculate BIC of a transformed Gaussian mixture across a range of number of components
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param K
+#' @param K Vector specifying the number of components to test
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param optimal.only If TRUE, directly return only the GMM with optimal number of components; otherwise return a structure with fits for all tested number of components
+#' @param epsilon See fit.gmm.transformed
+#' @param maxsteps See fit.gmm
+#' @param verbose 
 #' @export
 #' @examples
-gmm.transformed.BIC <- function(x, K = 1:6, bounds, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
     result$BIC <- rep(NA, length(K))
@@ -246,17 +267,27 @@ gmm.transformed.BIC <- function(x, K = 1:6, bounds, epsilon = 1e-5, maxsteps = 1
             result$BIC[k] <- result$fits[[k]]$gmm$BIC
         }
     }
-    return(result)
+    if (optimal.only) {
+        ix <- which.min(result$BIC)
+        return(result$fits[[ix]])
+    } else {
+        return(result)
+    }
 }
 
 #' Calculate BIC of a truncated Gaussian mixture across a range of number of components
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param K
+#' @param K Vector specifying the number of components to test
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param optimal.only If TRUE, directly return only the GMM with optimal number of components; otherwise return a structure with fits for all tested number of components
+#' @param epsilon See fit.gmm.truncated
+#' @param maxsteps See fit.gmm.truncated
+#' @param verbose 
 #' @export
 #' @examples
-gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
     result$BIC <- rep(NA, length(K))
@@ -274,5 +305,10 @@ gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep
             result$BIC[k] <- result$fits[[k]]$BIC
         }
     }
-    return(result)
+    if (optimal.only) {
+        ix <- which.min(result$BIC)
+        return(result$fits[[ix]])
+    } else {
+        return(result)
+    }
 }

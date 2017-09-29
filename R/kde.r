@@ -6,6 +6,8 @@ library(mvtnorm)
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param adjust Scalar multiplication of the bandwidth
 #' @param bw.fn Function used to calculate the bandwidth. If diagonal = T, bw.fn should accept a vector of 1-dimensional values. If diagonal = F, bw.fn should accept a matrix of samples.
+#' @param diagonal If true, estimate a diagonal bandwidth matrix; otherwise estimate a full bandwidth matrix.
+#' @param verbose
 #' @param ... Further arguments are passed to bw.fn
 #' @export
 #' @examples
@@ -29,20 +31,22 @@ fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...
     } else {
         result$H <- adjust * bw.fn(x, ...)
     }
-    return(structure(result, class = "mdd.density"))
+    return(structure(result, class = "mvd.density"))
 }
 
-#' Fit a transformed kernel density estimate
+#' Fit a kernel density estimate after transforming the variables to an unbounded domain.
 #'
-#' Fits a kernel density estimates after transforming the variables to an unbounded domain.
-#' [0,inf] -> log
-#' [0,1] -> logit 
-#' [a,b] -> scaled logit
+#' The following transformations are used
+#' [0,inf] -> log(x)
+#' [-inf,0] -> log(-x)
+#' [0,1] -> logit(x) = log(x / (1 - x))
+#' [a,b] -> scaled logit(x) = log((a - x) / (x - b)) 
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param bounds Dx2 matrix of boundaries which determine the type of transformation to use.
 #' @param adjust Scalar multiplication of the bandwidth
 #' @param bw.fn Function used to calculate the bandwidth. If diagonal = T, bw.fn should accept a vector of 1-dimensional values. If diagonal = F, bw.fn should accept a matrix of samples.
-#' @param ... Further arguments are passed to bw.fn
+#' @param diagonal If true, estimate a diagonal bandwidth matrix; otherwise estimate a full bandwidth matrix.
+#' @param verbose
 #' @export
 #' @examples
 #' x <- exp(rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1))))
@@ -53,9 +57,9 @@ fit.kde.transformed <- function(x, bounds, adjust = 1, bw.fn = bw.SJ, diagonal =
     result <- list()
     result$type <- "kde.transformed"
     result$transform.bounds <- bounds
-    transformed <- mdd.transform_to_unbounded(x, bounds)
+    transformed <- mvd.transform_to_unbounded(x, bounds)
     result$kde <- fit.kde(transformed, adjust = adjust, bw.fn = bw.fn, diagonal = diagonal)
-    return(structure(result, class = "mdd.density"))
+    return(structure(result, class = "mvd.density"))
 }
 
 .evaluate.kde <- function(fit, x, log = FALSE)

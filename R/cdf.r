@@ -1,18 +1,24 @@
-#source("utils.r")
+#' Evaluate the cumulative distribution function of a density approximation
+#'
+#' Currently only implemented for Gaussian mixtures.
+#' @param fit An mvd.density object obtained from one of the density fitting functions.
+#' @param x Matrix or vector of positions at which to evaluate the density function.
+#' @param log Boolean which specifies whether to return the cumulative probability in log space.
+#' @export
+#' @examples
+mvd.cdf <- function(fit, x, log) {
+    stopifnot(class(fit) == "mvd.density")
 
-mdd.cdf <- function(mddens_fit, x, log) {
-    if (mddens_fit$type == "gmm") {
-        require(mvtnorm)
-
+    if (fit$type == "gmm") {
         if (is.matrix(x)) {
-            stopifnot(ncol(x) == ncol(mddens_fit$centers))
+            stopifnot(ncol(x) == ncol(fit$centers))
 
-            p <- matrix(NA, nrow(x), mddens_fit$K)
-            for (ki in 1:mddens_fit$K) {
+            p <- matrix(NA, nrow(x), fit$K)
+            for (ki in 1:fit$K) {
                 if (log) {
-                    p[, ki] <- pmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], log = TRUE) + log(mddens_fit$proportions[ki])
+                    p[, ki] <- pmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = TRUE) + log(fit$proportions[ki])
                 } else {
-                    p[, ki] <- pmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], log = FALSE) * mddens_fit$proportions[ki]
+                    p[, ki] <- pmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = FALSE) * fit$proportions[ki]
                 }
             }
 
@@ -22,14 +28,14 @@ mdd.cdf <- function(mddens_fit, x, log) {
                 return(apply(p, 1, sum))
             }
         } else {
-            stopifnot(length(x) == ncol(mddens_fit$centers))
+            stopifnot(length(x) == ncol(fit$centers))
 
-            p <- rep(NA, mddens_fit$K)
-            for (ki in 1:mddens_fit$K) {
+            p <- rep(NA, fit$K)
+            for (ki in 1:fit$K) {
                 if (log) {
-                    p[ki] <- pmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], log = TRUE) + log(mddens_fit$proportions[ki])
+                    p[ki] <- pmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = TRUE) + log(fit$proportions[ki])
                 } else {
-                    p[ki] <- pmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], log = FALSE) * mddens_fit$proportions[ki]
+                    p[ki] <- pmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = FALSE) * fit$proportions[ki]
                 }
             }
 
@@ -39,17 +45,16 @@ mdd.cdf <- function(mddens_fit, x, log) {
                 return(sum(p))
             }
         }
-    } else if (mddens_fit$type == "gmm.truncated") {
-        require(tmvtnorm)
+    } else if (fit$type == "gmm.truncated") {
         if (is.matrix(x)) {
-            stopifnot(ncol(x) == ncol(mddens_fit$centers))
+            stopifnot(ncol(x) == ncol(fit$centers))
 
-            p <- matrix(NA, nrow(x), mddens_fit$K)
-            for (ki in 1:mddens_fit$K) {
+            p <- matrix(NA, nrow(x), fit$K)
+            for (ki in 1:fit$K) {
                 if (log) {
-                    p[, ki] <- ptmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], lower = mddens_fit$bounds[, 1], upper = mddens_fit$bounds[, 2], log = TRUE) + log(mddens_fit$proportions[ki])
+                    p[, ki] <- ptmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
                 } else {
-                    p[, ki] <- ptmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], lower = mddens_fit$bounds[, 1], upper = mddens_fit$bounds[, 2], log = FALSE) * mddens_fit$proportions[ki]
+                    p[, ki] <- ptmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = FALSE) * fit$proportions[ki]
                 }
             }
 
@@ -59,14 +64,14 @@ mdd.cdf <- function(mddens_fit, x, log) {
                 return(apply(p, 1, sum))
             }
         } else {
-            stopifnot(length(x) == ncol(mddens_fit$centers))
+            stopifnot(length(x) == ncol(fit$centers))
 
-            p <- rep(NA, mddens_fit$K)
-            for (ki in 1:mddens_fit$K) {
+            p <- rep(NA, fit$K)
+            for (ki in 1:fit$K) {
                 if (log) {
-                    p[ki] <- ptmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], lower = mddens_fit$bounds[, 1], upper = mddens_fit$bounds[, 2], log = TRUE) + log(mddens_fit$proportions[ki])
+                    p[ki] <- ptmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
                 } else {
-                    p[ki] <- ptmvnorm(x, mddens_fit$centers[ki,], mddens_fit$covariances[[ki]], lower = mddens_fit$bounds[, 1], upper = mddens_fit$bounds[, 2], log = FALSE) * mddens_fit$proportions[ki]
+                    p[ki] <- ptmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = FALSE) * fit$proportions[ki]
                 }
             }
 
@@ -77,6 +82,6 @@ mdd.cdf <- function(mddens_fit, x, log) {
             }
         }
     } else {
-        stop("Unknown type")
+        stop("Unknown type or not implemented")
     }
 }

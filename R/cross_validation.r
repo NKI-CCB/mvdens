@@ -1,47 +1,17 @@
-#source("kde.r")
-#source("gmm.r")
-#source("pdf.r")
-#source("vine_copula.r")
-#source("gp.r")
-#source("transform.r")
-# 
-# source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
-# 
-# cwd <- getwd()
-# setwd("D:/Research/projects/52-approximate-mc-output-paper/")
-# model_simple <- load_sbmlpd_model("1-simple-model", "output_1")
-# model_extended <- load_sbmlpd_model("2-extended-model", "output_both")
-# setwd(cwd)
-
-#x <- model_extended$posterior$samples[, c(1, 10)]
-#bounds <- rbind(c(0, 1), c(-1, 1))
-#plot(x)
-# 
-# subset <- 1:200
-# 
-# x <- model_extended$posterior$samples[subset,]
-# lposterior <- model_extended$posterior$lposterior[subset] + -2.35442
-# bounds <- prior_bounds_all(model_extended, q = c(0, 1))
-# 
-# x <- x
-# p <- lposterior
-# train.function <- fit.gmm
-# K <- 10
-# parallel <- F
 
 .cv.iteration <- function(train.function, x.train, x.test, p.train, p.test, log, fit.params)
 {
     retval <- list()
     retval$structure <- train.function(x.train, p.train, log, fit.params)
-    retval$predicted <- mdd.pdf(retval$structure, x.test, log = log)
+    retval$predicted <- mvd.pdf(retval$structure, x.test, log = log)
 
     error <- retval$predicted - p.test
     retval$rmse <- sqrt(mean(error * error))
 
     if (log) {
-        error <- retval$predicted - p.test - mdd.marginal.likelihood(retval$structure, x.train, p.train, T)
+        error <- retval$predicted - p.test - mvd.marginal.likelihood(retval$structure, x.train, p.train, T)
     } else {
-        error <- retval$predicted - p.test / mdd.marginal.likelihood(retval$structure, x.train, p.train, F)
+        error <- retval$predicted - p.test / mvd.marginal.likelihood(retval$structure, x.train, p.train, F)
     }
     retval$rmse.corrected <- sqrt(mean(error * error))
 
@@ -87,16 +57,27 @@
     do.call(fit.vine.copula, c(list(x = x.train, marginalfn = fit.marginal.mixture), fit.params))
 }
 
-#' Cross validation
+#' Estimate the approximation accuracy of a multivariate density using cross validation
 #'
-#' description
+#' Perform cross validation to estimate the accuracy of the density approximations. This requires the known probability densities at the sample points, though these probability densities do not have to be normalized. If they are not normalized, then only the correlation is a meaningful performance measure though. If they are normalized, the RMSE is also informative.
+#' Either K-fold cross validation or Monte Carlo cross validation can be performed.
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param p
-#' @param type
+#' @param p Vector of posterior probability densities of the samples.
+#' @param log Boolean which should specify whether p is in log space
+#' @param type Type of the density approximation to use, can be: kde, kde.transformed, gmm, gmm.transformed, gmm.truncated, gp, vc.ecdf, vc.ecdf.pareto, vc.parametric, vc.mixture
+#' @param cvtype Type of cross validation, can be either kfoldcv or mccv
+#' @param nfolds The number of cross validation folds (i.e. K when using K-fold cross validation, or the number of iterations in Monte Carlo cross validation).
+#' @param mcsize When using Monte Carlo cross validation, this specifies the size of the test set.
+#' @param parallel When true, and when parallel workers have been registered, run the cross validation in parallel using foreach. The user should start the parallel workers (see examples).
+#' @param verbose Display the progress (when parallel=F)
+#' @param fit.params A named list with parameters to be relayed to the density fitting functions.
 #' @export
 #' @examples
-mdd.cv <- function(x, p, log, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/10, parallel = F, verbose = F, fit.params=list())
-{
+#' cl <- makeCluster(6)
+#' registerDoParallel(cl)
+#' foreach(i = 1:6) %dopar% { library(mvdens) }
+
+mvd.cv <- function(x, p, log, type, cvtype, nfolds = 10, mcsize = nrow(x) / 10, parallel = F, verbose = F, fit.params = list()) {
     cv <- list()
 
     train.function <- NULL
@@ -122,7 +103,7 @@ mdd.cv <- function(x, p, log, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/
         train.function <- .train.vc.mixture
     }
 
-    if (is.null(mcfolds)) {
+    if (cvtype == "kfoldcv") {
         reordering <- sample.int(nrow(x))
         holdout_size <- nrow(x) / nfolds
 
@@ -150,17 +131,17 @@ mdd.cv <- function(x, p, log, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/
             test_ix <- reordering[(i - 1) * holdout_size + 1:holdout_size]
             cv$predicted[test_ix] <- cv$estimates[[i]]$predicted
         }
-    } else {
+    } else if(cvtype == "mccv") {
         if (parallel) {
             require(foreach)
-            cv$estimates <- foreach(i = 1:mcfolds) %dopar% {
+            cv$estimates <- foreach(i = 1:nfolds) %dopar% {
                 test_ix <- sample(nrow(x), mcsize)
                 train_ix <- setdiff(1:nrow(x), test_ix)
                 return(.cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], log = log, fit.params))
             }
         } else {
             cv$estimates <- list()
-            for (i in 1:mcfolds) {
+            for (i in 1:nfolds) {
                 if (verbose) {
                     cat("Fold =", i, "\n")
                 }
@@ -169,6 +150,8 @@ mdd.cv <- function(x, p, log, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/
                 cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], log = log, fit.params)
             }
         }
+    } else {
+        stop("Invalid cvtype")
     }
 
     ns <- length(cv$estimates)
@@ -185,7 +168,7 @@ mdd.cv <- function(x, p, log, type, nfolds = 10, mcfolds = NULL, mcsize=nrow(x)/
   return(cv)
 }
 
-cv.compare.plots <- function(cv_list, ...)
+mvd.cv.compare.plots <- function(cv_list, ...)
 {
     require(beeswarm)
 

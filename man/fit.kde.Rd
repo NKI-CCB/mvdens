@@ -13,6 +13,8 @@ fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...)
 
 \item{bw.fn}{Function used to calculate the bandwidth. If diagonal = T, bw.fn should accept a vector of 1-dimensional values. If diagonal = F, bw.fn should accept a matrix of samples.}
 
+\item{diagonal}{If true, estimate a diagonal bandwidth matrix; otherwise estimate a full bandwidth matrix.}
+
 \item{...}{Further arguments are passed to bw.fn}
 }
 \description{

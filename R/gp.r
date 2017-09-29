@@ -161,13 +161,18 @@
 
 #' Fit a Gaussian process density function
 #'
-#' description
+#' Fit a Gaussian process through the posterior density samples. The GP can optionally be normalized such that the predictive function integrates to 1.
+#' The GP assumes a zero mean, and can use either a squared exponential or Matern-type covariance function. A single length scale parameter is used, which is
+#' optimized by minimizing the RMSE in 5-fold cross validation.
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param p
-#' @param kernel
+#' @param p Probability density at the sample locations; does not have to be normalized. Note that the probabilities should not be log transformed.
+#' @param kernel Which kernel to use, can be "se", "matern32" or "matern52".
+#' @param normalize Boolean specifying whether to normalize the GP such that it integrates to 1.
+#' @param sigman Value added to the diagonal of the kernel matrix; can help numerical stability.
+#' @param verbose Display progress during the optimization of l.
 #' @export
 #' @examples
-fit.gp <- function(x, p, log, kernel, l = 1.0, b = NA, normalize = T, sigman = 1e-12, verbose = F) {
+fit.gp <- function(x, p, kernel, l = 1.0, normalize = T, sigman = 1e-12, verbose = F) {
     result <- list()
     result$type <- "gp"
 
@@ -193,42 +198,37 @@ fit.gp <- function(x, p, log, kernel, l = 1.0, b = NA, normalize = T, sigman = 1
     result$p <- p
     result$sigman <- sigman
 
-    if (log) {
-        result$log <- T
-
+    result$log <- F
+    if (length(l) > 1) {
+        opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
+        result$l <- opt$minimum
     } else {
-        result$log <- F
-        if (length(l) > 1) {
-            opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
-            result$l <- opt$minimum
-        } else {
-            result$l <- l
-        }
-
-        result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
-        L <- chol(result$kxx)
-        result$alpha <- backsolve(L, backsolve(L, p, transpose = TRUE))
-
-        if (normalize) {
-            if (is.matrix(result$x)) {
-                D <- ncol(result$x)
-            } else {
-                D <- 1
-            }
-            integral <- result$kernel.integral(result$alpha, result$l, D)
-            result$s <- 1.0 / integral
-        } else {
-            result$s <- 1.0
-        }
+        result$l <- l
     }
 
-    return(structure(result, class = "mdd.density"))
+    result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)
+    L <- chol(result$kxx)
+    result$alpha <- backsolve(L, backsolve(L, p, transpose = TRUE))
+
+    if (normalize) {
+        if (is.matrix(result$x)) {
+            D <- ncol(result$x)
+        } else {
+            D <- 1
+        }
+        integral <- result$kernel.integral(result$alpha, result$l, D)
+        result$s <- 1.0 / integral
+    } else {
+        result$s <- 1.0
+    }
+
+    return(structure(result, class = "mvd.density"))
 }
 
 #' Evaluate a Gaussian process density function
 #'
 #' description
-#' @param fit
+#' @param fit mvd.density object
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
 #' @examples
@@ -242,32 +242,3 @@ evaluate.gp <- function(fit, x) {
         return(fit$s * f)
     }
 }
-
-#x <- rnorm(1000)
-#p <- dnorm(x)
-#xstar <- seq(-10, 10, length.out = 200)
-
-#fit <- fit.gp(x, p, "se", l = c(0.01, 100))
-#fstar <- evaluate.gp(fit, xstar)
-
-#plot(xstar, fstar)
-
-#l <- 1.5
-
-#kxx <- .kernel.squared.exponential(x, x, l)
-#kxsx <- .kernel.squared.exponential(xstar, x, l)
-
-#fstar <- kxsx %*% solve(kxx + 1e-12 * diag(nrow(kxx))) %*% p
-#plot(xstar, fstar, typ="l", ylim=c(-2,2))
-
-#kxxs <- .kernel.squared.exponential(x, xstar, l)
-#kxsxs <- .kernel.squared.exponential(xstar, xstar, l)
-#covfstar <- kxsxs - kxsx %*% solve(kxx + 1e-8 * diag(nrow(kxx))) %*% kxxs
-
-#polygon(c(xstar, rev(xstar)), c(fstar + diag(covfstar), rev(fstar - diag(covfstar))), col = "grey", border = NA)
-
-
-#kxsx <- fit$kernel(xstar, fit$x, fit$l)
-#fstar <- kxsx %*% solve(fit$kxx) %*% p
-
-#head(sort(eigen(kxx + 1e-13 * diag(nrow(kxx)))$values))

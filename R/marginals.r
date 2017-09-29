@@ -1,4 +1,4 @@
-#' Marginal ecdf
+#' Marginal function for use in fit.vine.copula: empirical distribution function
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -38,10 +38,10 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
         marginal$bw[i] <- bw.SJ(marginal$x[[i]], lower = 1e-6 * hmax, upper = hmax)
     }
 
-    return(structure(marginal, class = "mdd.marginal"))
+    return(structure(marginal, class = "mvd.marginal"))
 }
 
-#' Marginal parametric
+#' Marginal function for use in fit.vine.copula: single parametric distribution
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -103,10 +103,10 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
         marginal$dists[[i]]$name <- colnames(x)[i]
     }
 
-    return(structure(marginal, class = "mdd.marginal"))
+    return(structure(marginal, class = "mvd.marginal"))
 }
 
-#' Marginal mixture
+#' Marginal function for use in fit.vine.copula: mixture of parametric distributions
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -224,7 +224,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
         marginal$dists[[i]]$name <- colnames(x)[i]
     }
 
-    return(structure(marginal, class = "mdd.marginal"))
+    return(structure(marginal, class = "mvd.marginal"))
 }
 
 .fit.pareto.tail <- function(x, u) {
@@ -279,7 +279,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(p)
 }
 
-#' Marginal ecdf+pareto tail
+#' Marginal function for use in fit.vine.copula: empirical distribution function with pareto tails
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -338,17 +338,18 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
         }
     }
 
-    return(structure(marginal, class = "mdd.marginal"))
+    return(structure(marginal, class = "mvd.marginal"))
 }
 
-#' Transform variables to U[0,1]
+#' Transform variables to U[0,1] using a fitted marginal function
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @export
 #' @examples
 marginal.transform <- function(x, marginal) {
-    stopifnot(class(marginal) == "mdd.marginal")
+    stopifnot(class(marginal) == "mvd.marginal")
 
     if (!is.matrix(x)) {
         x <- t(as.matrix(x))
@@ -410,7 +411,7 @@ marginal.transform <- function(x, marginal) {
 }
 
 reverse.transform.marginals <- function(transformed, marginal) {
-    stopifnot(class(marginal) == "mdd.marginal")
+    stopifnot(class(marginal) == "mvd.marginal")
 
     if (!is.matrix(transformed)) {
         transformed <- as.matrix(transformed)
@@ -428,14 +429,16 @@ reverse.transform.marginals <- function(transformed, marginal) {
     return(x)
 }
 
-#' PDF of marginal
+#' Probability density function of a marginal distribution fitted with one of the marginal distribution functions.
 #'
 #' description
+#' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param log Whether to return the density in log
 #' @export
 #' @examples
 marginal.pdf <- function(marginal, x, log = T) {
-    stopifnot(class(marginal) == "mdd.marginal")
+    stopifnot(class(marginal) == "mvd.marginal")
     stopifnot(log)
 
     p <- matrix(NA, nrow(x), ncol(x))
@@ -506,29 +509,10 @@ marginal.pdf <- function(marginal, x, log = T) {
 }
 
 marginal.correct.p <- function(marginal, x, p, log = T) {
-    stopifnot(class(marginal) == "mdd.marginal")
+    stopifnot(class(marginal) == "mvd.marginal")
     mp <- marginal.pdf(marginal, x, log)
     for (i in 1:ncol(x)) {
         p <- p + mp[, i]
     }
     return(p)
 }
-
-setClass('mdd.marginal')
-setMethod('summary', 'mdd.marginal', function(object, ...) {
-    cat("mddens marginal distribution of type:", object$type, "\n")
-    if (object$type == "ecdf") {
-        cat("  Bandwidths:\n")
-        for (i in 1:length(object$bw)) {
-            cat("   ", object$varnames[i], "-", object$bw[i], "\n")
-        }
-    } else if (object$type == "parametric") {
-        for (i in 1:length(object$dists)) {
-            cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "\n")
-        }
-    } else if (object$type == "mixture") {
-        for (i in 1:length(object$dists)) {
-            cat("   ", object$dists[[i]]$name, "-", object$dists[[i]]$type, "- p:", paste(object$dists[[i]]$p, collapse = ","), "\n")
-        }
-    }
-})

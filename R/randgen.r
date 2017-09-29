@@ -1,7 +1,7 @@
 library(mvtnorm)
 
-mdd.rgen <- function(fit, n) {
-    stopifnot(class(fit) == "mdd")
+mvd.rgen <- function(fit, n) {
+    stopifnot(class(fit) == "mvd.density")
 
     if (fit$type == "kde") {
         s <- sample(nrow(fit$x), n, replace = T)
@@ -15,16 +15,16 @@ mdd.rgen <- function(fit, n) {
             x <- x + fit$x[s,]
         }
     } else if (fit$type == "kde.transformed") {
-        transformed <- mdd.rgen(fit$kde, n)
-        x <- mdd.transform_from_unbounded(transformed, fit$transform.bounds)
+        transformed <- mvd.rgen(fit$kde, n)
+        x <- mvd.transform_from_unbounded(transformed, fit$transform.bounds)
     } else if (fit$type == "gmm") {
         s <- sample(fit$k, n, replace = T)
         for (i in 1:n) {
             x[i,] <- rmvnorm(1, fit$centers[s[i],], fit$covariances[[s[i]]])
         }
     } else if (fit$type == "gmm.transformed") {
-        transformed <- mdd.rgen(fit$gmm, n)
-        x <- mdd.transform_from_unbounded(transformed, fit$transform.bounds)
+        transformed <- mvd.rgen(fit$gmm, n)
+        x <- mvd.transform_from_unbounded(transformed, fit$transform.bounds)
     } else if (fit$type == "gmm.truncated") {
         if (ncol(x) < 10) {
             method <- "rejection"

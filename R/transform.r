@@ -5,6 +5,13 @@
 .dlogit_scale <- function(x, a, b) {(b - a) / ((a - x) * (x - b)) }
 .logistic_scale <- function(x, a, b) { ex <- exp(x); (a + b * ex) / (ex + 1) }
 
+#' Transform to an unbounded domain
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Bounds
+#' @export
+#' @examples
 mvd.transform_to_unbounded <- function(x, bounds) {
     transformed <- matrix(NA, nrow = nrow(x), ncol = ncol(x))
     for (i in 1:ncol(x)) {
@@ -32,6 +39,13 @@ mvd.transform_to_unbounded <- function(x, bounds) {
     return(transformed)
 }
 
+#' Reverse transform from an unbounded domain
+#'
+#' description
+#' @param transformed_x Matrix or vector of transformed samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Bounds
+#' @export
+#' @examples
 mvd.transform_from_unbounded <- function(transformed_x, bounds) {
     x <- matrix(NA, nrow = nrow(x), ncol = ncol(x))
     for (i in 1:ncol(x)) {
@@ -55,6 +69,13 @@ mvd.transform_from_unbounded <- function(transformed_x, bounds) {
     return(x)
 }
 
+#' Probability density correction for variable transformation
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Bounds
+#' @export
+#' @examples
 mvd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
     if (log) {
         for (i in 1:ncol(x)) {

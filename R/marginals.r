@@ -227,40 +227,60 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(structure(marginal, class = "mvd.marginal"))
 }
 
-.fit.pareto.tail <- function(x, u) {
+.fit.pareto.tail <- function(x, u, fixed_beta = NA) {
     exceedances <- x[x > u]
     excess <- exceedances - u
     Nu <- length(excess)
     xbar <- mean(excess)
 
-    s2 <- var(excess)
-    xi0 <- -0.5 * (((xbar * xbar) / s2) - 1)
-    beta0 <- 0.5 * xbar * (((xbar * xbar) / s2) + 1)
-    theta <- c(xi0, beta0)
+    result <- list()
+    if (is.na(fixed_beta)) {
+        s2 <- var(excess)
+        xi0 <- -0.5 * (((xbar * xbar) / s2) - 1)
+        beta0 <- 0.5 * xbar * (((xbar * xbar) / s2) + 1)
+        theta <- c(xi0, beta0)
 
-    negloglik <- function(theta, tmp) {
-        xi <- theta[1]
-        beta <- theta[2]
-        cond1 <- beta <= 0
-        cond2 <- (xi <= 0) && (max(tmp) > (-beta / xi))
-        if (cond1 || cond2) {
-            f <- 1e+06
-        } else {
-            y <- logb(1 + (xi * tmp) / beta)
-            y <- y / xi
-            f <- length(tmp) * logb(beta) + (1 + xi) * sum(y)
+        negloglik <- function(theta, tmp) {
+            xi <- theta[1]
+            beta <- theta[2]
+            cond1 <- beta <= 0
+            cond2 <- (xi <= 0) && (max(tmp) > (-beta / xi))
+            if (cond1 || cond2) {
+                f <- 1e+06
+            } else {
+                y <- logb(1 + (xi * tmp) / beta)
+                y <- y / xi
+                f <- length(tmp) * logb(beta) + (1 + xi) * sum(y)
+            }
+            f
         }
-        f
+
+        fit <- optim(theta, negloglik, lower = c(0, 0), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
+        result$xi <- fit$par[1]
+        result$beta <- fit$par[2]
+    } else {
+        s2 <- var(excess)
+        xi0 <- -0.5 * (((xbar * xbar) / s2) - 1)
+
+        negloglik <- function(xi, tmp, beta) {
+            cond1 <- beta <= 0
+            cond2 <- (xi <= 0) && (max(tmp) > (-beta / xi))
+            if (cond1 || cond2) {
+                f <- 1e+06
+            } else {
+                y <- logb(1 + (xi * tmp) / beta)
+                y <- y / xi
+                f <- length(tmp) * logb(beta) + (1 + xi) * sum(y)
+            }
+            cat(xi, beta, f, "\n")
+            f
+        }
+
+        fit <- optimize(negloglik, lower = 0, upper = 1000, tmp = excess, beta = fixed_beta)
+        result$xi <- fit$minimum
+        result$beta <- fixed_beta
     }
 
-    #fit <- optim(theta, negloglik, tmp = excess)
-    fit <- optim(theta, negloglik, lower = c(0, 0), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
-    #fit <- optimize(negloglikul, lower=0, upper=100, tmp = excess)
-    #return(c(-upperlimit / fit$minimum, fit$minimum / upperlimit))
-
-    result <- list()
-    result$xi <- fit$par[1]
-    result$beta <- fit$par[2]
     return(result)
 }
 
@@ -321,7 +341,7 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
             dp <- sum(dnorm(u, marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
             dp <- dp / length(marginal$ecdf$x[[i]])
 
-            marginal$lower.tails[[i]] <- .fit.pareto.tail(-x[, i], - u)
+            marginal$lower.tails[[i]] <- .fit.pareto.tail(-x[, i], - u, pareto_threshold / dp)
             marginal$lower.tails[[i]]$u <- u
             marginal$lower.tails[[i]]$q <- pareto_threshold
             marginal$lower.tails[[i]]$d <- dp
@@ -334,7 +354,7 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
             dp <- sum(dnorm(u, marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
             dp <- dp / length(marginal$ecdf$x[[i]])
 
-            marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], u)
+            marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], u, pareto_threshold / dp)
             marginal$upper.tails[[i]]$u <- u
             marginal$upper.tails[[i]]$q <- 1 - pareto_threshold
             marginal$upper.tails[[i]]$d <- dp

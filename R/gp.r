@@ -172,7 +172,7 @@
 #' @param verbose Display progress during the optimization of l.
 #' @export
 #' @examples
-fit.gp <- function(x, p, kernel, l = 1.0, normalize = T, sigman = 1e-12, verbose = F) {
+fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 1e-12, verbose = F) {
     result <- list()
     result$type <- "gp"
 
@@ -197,11 +197,19 @@ fit.gp <- function(x, p, kernel, l = 1.0, normalize = T, sigman = 1e-12, verbose
     result$x <- x
     result$p <- p
     result$sigman <- sigman
-
     result$log <- F
-    if (length(l) > 1) {
-        opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
-        result$l <- opt$minimum
+
+    if (optimize) {
+        #if (isotropic) {
+            stopifnot(length(l) > 1)
+            opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
+            result$l <- opt$minimum
+        #} else {
+        #    require(nloptr)
+        #    stopifnot(ncol(l) == 3 && nrow(l) == ncol(x))
+        #    opt <- sbplx(l[, 1], .gp.cv.optimize, l[, 2], l[, 3], result = result, verbose = verbose)
+        #    result$l <- opt$par
+        #}
     } else {
         result$l <- l
     }

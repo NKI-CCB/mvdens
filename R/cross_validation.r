@@ -42,7 +42,7 @@
     return(bic$fits[[best]])
 }
 .train.gp <- function(x.train, p.train, log, fit.params) {
-    do.call(fit.gp, c(list(x = x.train, p = p.train, log = log), fit.params))
+    do.call(fit.gp, c(list(x = x.train, p = p.train), fit.params))
 }
 .train.vc.ecdf <- function(x.train, p.train, log, fit.params) {
     do.call(fit.vine.copula, c(list(x = x.train, marginalfn = fit.marginal.ecdf), fit.params))
@@ -65,7 +65,7 @@
 #' @param p Vector of posterior probability densities of the samples.
 #' @param log Boolean which should specify whether p is in log space
 #' @param type Type of the density approximation to use, can be: kde, kde.transformed, gmm, gmm.transformed, gmm.truncated, gp, vc.ecdf, vc.ecdf.pareto, vc.parametric, vc.mixture
-#' @param cvtype Type of cross validation, can be either kfoldcv or mccv
+#' @param cvtype Type of cross validation, can be either kfoldcv, mccv or fixed
 #' @param nfolds The number of cross validation folds (i.e. K when using K-fold cross validation, or the number of iterations in Monte Carlo cross validation).
 #' @param mcsize When using Monte Carlo cross validation, this specifies the size of the test set.
 #' @param parallel When true, and when parallel workers have been registered, run the cross validation in parallel using foreach. The user should start the parallel workers (see examples).
@@ -150,6 +150,11 @@ mvd.cv <- function(x, p, log, type, cvtype, nfolds = 10, mcsize = nrow(x) / 10, 
                 cv$estimates[[i]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], log = log, fit.params)
             }
         }
+    } else if (cvtype == "fixed") {
+        cv$estimates <- list()
+        train_ix <- 1:(nrow(x) - mcsize)
+        test_ix <- (nrow(x) - mcsize + 1):nrow(x)
+        cv$estimates[[1]] <- .cv.iteration(train.function, x[train_ix,], x[test_ix,], p[train_ix], p[test_ix], log = log, fit.params)
     } else {
         stop("Invalid cvtype")
     }

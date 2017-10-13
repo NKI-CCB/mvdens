@@ -272,7 +272,6 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
                 y <- y / xi
                 f <- length(tmp) * logb(beta) + (1 + xi) * sum(y)
             }
-            cat(xi, beta, f, "\n")
             f
         }
 
@@ -356,7 +355,7 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
 
             marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], u, pareto_threshold / dp)
             marginal$upper.tails[[i]]$u <- u
-            marginal$upper.tails[[i]]$q <- 1 - pareto_threshold
+            marginal$upper.tails[[i]]$q <- pareto_threshold
             marginal$upper.tails[[i]]$d <- dp
         } else {
             marginal$upper.tails[[i]] <- list()
@@ -390,12 +389,12 @@ marginal.transform <- function(x, marginal) {
             is_body <- rep(T, nrow(x))
             if (length(marginal$lower.tails[[i]]) > 0) {
                 is_tail <- x[, i] < marginal$lower.tails[[i]]$u
-                transformed[is_tail, i] <- marginal$lower.tails[[i]]$q * (1 - .pareto.cdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta))
+                transformed[is_tail, i] <- marginal$lower.tails[[i]]$q - marginal$lower.tails[[i]]$q * .pareto.cdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta)
                 is_body[is_tail] <- F
             }
             if (length(marginal$upper.tails[[i]]) > 0) {
                 is_tail <- x[, i] > marginal$upper.tails[[i]]$u
-                transformed[is_tail, i] <- marginal$upper.tails[[i]]$q + (1 - marginal$upper.tails[[i]]$q) * .pareto.cdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta)
+                transformed[is_tail, i] <- (1 - marginal$upper.tails[[i]]$q) + marginal$upper.tails[[i]]$q * .pareto.cdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta)
                 is_body[is_tail] <- F
             }
             transformed[is_body, i] <- marginal$ecdf$ecdfs[[i]](x[is_body, i])
@@ -461,8 +460,8 @@ reverse.transform.marginals <- function(transformed, marginal) {
             }
             if (length(marginal$upper.tails[[i]]) > 0) {
                 tail <- marginal$upper.tails[[i]]
-                is_tail <- transformed[, i] > tail$q
-                x[is_tail, i] <- .pareto.quantile((transformed[is_tail, i] - tail$q) / (1.0 - tail$q), tail$u, tail$xi, tail$beta);
+                is_tail <- transformed[, i] > 1.0 - tail$q
+                x[is_tail, i] <- .pareto.quantile((transformed[is_tail, i] - (1.0 - tail$q)) / tail$q, tail$u, tail$xi, tail$beta);
                 is_body[is_tail] <- F
             }
             x[is_body, i] <- quantile(marginal$ecdf$ecdfs[[i]], transformed[is_body, i], type = 4)
@@ -514,12 +513,12 @@ marginal.pdf <- function(marginal, x, log = T) {
             is_body <- rep(T, nrow(x))
             if (length(marginal$lower.tails[[i]]) > 0) {
                 is_tail <- x[, i] < marginal$lower.tails[[i]]$u
-                p[is_tail, i] <- log(marginal$lower.tails[[i]]$beta * marginal$lower.tails[[i]]$d) + .pareto.pdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta, log = T)
+                p[is_tail, i] <- log(marginal$lower.tails[[i]]$q) + .pareto.pdf(-x[is_tail, i], - marginal$lower.tails[[i]]$u, marginal$lower.tails[[i]]$xi, marginal$lower.tails[[i]]$beta, log = T)
                 is_body[is_tail] <- F
             }
             if (length(marginal$upper.tails[[i]]) > 0) {
                 is_tail <- x[, i] > marginal$upper.tails[[i]]$u
-                p[is_tail, i] <- log(marginal$upper.tails[[i]]$beta * marginal$upper.tails[[i]]$d) + .pareto.pdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta, log = T)
+                p[is_tail, i] <- log(marginal$upper.tails[[i]]$q) + .pareto.pdf(x[is_tail, i], marginal$upper.tails[[i]]$u, marginal$upper.tails[[i]]$xi, marginal$upper.tails[[i]]$beta, log = T)
                 is_body[is_tail] <- F
             }
             for (j in which(is_body)) {

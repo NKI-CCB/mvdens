@@ -26,6 +26,9 @@
 .train.kde.transformed <- function(x.train, p.train, log, fit.params) {
     do.call(fit.kde.transformed, c(list(x = x.train, p = p.train, log = log), fit.params))
 }
+.train.gaussian <- function(x.train, p.train, log, fit.params) {
+    do.call(fit.gmm, c(list(x = x.train, K = 1), fit.params))
+}
 .train.gmm <- function(x.train, p.train, log, fit.params) {
     bic <- do.call(gmm.BIC, c(list(x = x.train), fit.params))
     best <- which.min(bic$BIC)
@@ -85,6 +88,8 @@ mvd.cv <- function(x, p, log, type, cvtype, nfolds = 10, mcsize = nrow(x) / 10, 
         train.function <- .train.kde
     } else if (type == "kde.transformed") {
         train.function <- .train.kde.transformed
+    } else if (type == "gaussian") {
+        train.function <- .train.gaussian
     } else if (type == "gmm") {
         train.function <- .train.gmm
     } else if (type == "gmm.transformed") {

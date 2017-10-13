@@ -131,7 +131,6 @@
 #' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
 #' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
-#' @examples
 fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     nparam <- K * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K - 1
     if (nparam >= nrow(x)) {
@@ -162,7 +161,6 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
 #' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
 #' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
-#' @examples
 fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$type <- "gmm.transformed"
@@ -181,7 +179,6 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, v
 #' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
 #' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
-#' @examples
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
 
@@ -209,7 +206,6 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
 #' @param maxsteps See fit.gmm
 #' @param verbose 
 #' @export
-#' @examples
 gmm.BIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
@@ -248,7 +244,6 @@ gmm.BIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 100
 #' @param maxsteps See fit.gmm
 #' @param verbose 
 #' @export
-#' @examples
 gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
@@ -286,7 +281,6 @@ gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 
 #' @param maxsteps See fit.gmm.truncated
 #' @param verbose 
 #' @export
-#' @examples
 gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K

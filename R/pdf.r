@@ -9,7 +9,6 @@
 #' @param x Matrix or vector of positions at which to evaluate the density function.
 #' @param log Boolean which specifies whether to return the probability density in log space.
 #' @export
-#' @examples
 mvd.pdf <- function(fit, x, log = FALSE) {
     stopifnot(class(fit) == "mvd.density")
 

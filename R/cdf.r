@@ -5,7 +5,6 @@
 #' @param x Matrix or vector of positions at which to evaluate the density function.
 #' @param log Boolean which specifies whether to return the cumulative probability in log space.
 #' @export
-#' @examples
 mvd.cdf <- function(fit, x, log) {
     stopifnot(class(fit) == "mvd.density")
 

@@ -67,7 +67,6 @@
 #' @param fit The mvdens fit object to export
 #' @param outfn Output filename
 #' @export
-#' @examples
 #' # Assumes that BCM is installed, an environment variable BCM_ROOT is specified, and there is a model named "model" with output directory "output_dir" in the current working folder
 #' source(paste(Sys.getenv("BCM_ROOT"), "/scripts/plots_functions.r", sep = ""))
 #' model <- load_sbmlpd_model("model", "output_dir")

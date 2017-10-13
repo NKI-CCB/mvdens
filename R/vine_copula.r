@@ -11,7 +11,6 @@ library(VineCopula)
 #' @param indeptest Relayed to VineCopula::RVineStructureSelect 
 #' @param verbose Relayed to VineCopula::RVineStructureSelect 
 #' @export
-#' @examples
 fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), trunclevel = NA, indeptest = F, verbose = F) {
     result <- list()
     result$type <- "vine.copula"
@@ -33,7 +32,6 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
 #' @param fit An mvd.density object obtained from fit.vine.copula
 #' @param x Matrix or vector of samples at which to evaluate the vine copula. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 evaluate.vine.copula <- function(fit, x, log = F) {
     if (!is.null(fit$marginal)) {
         transformed <- marginal.transform(x, fit$marginal)

@@ -171,7 +171,6 @@
 #' @param sigman Value added to the diagonal of the kernel matrix; can help numerical stability.
 #' @param verbose Display progress during the optimization of l.
 #' @export
-#' @examples
 fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 1e-12, verbose = F) {
     result <- list()
     result$type <- "gp"
@@ -239,7 +238,6 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
 #' @param fit mvd.density object
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 evaluate.gp <- function(fit, x) {
     stopifnot(fit$type == "gp")
 

@@ -7,7 +7,6 @@
 #' @param p Unnormalized posterior probability values.
 #' @param log Boolean which specifies whether p is in log scale. If true, the marginal likelihood is also return in log scale.
 #' @export
-#' @examples
 mvd.marginal.likelihood <- function(fit, x, p, log)
 {
     if (fit$type == "gp") {

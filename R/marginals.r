@@ -3,7 +3,6 @@
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T) {
     marginal <- list()
     marginal$type <- "ecdf"
@@ -46,7 +45,6 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
     library(MASS)
 
@@ -111,7 +109,6 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
     library(mixtools)
     library(betareg)
@@ -308,7 +305,6 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T, pareto_threshold = 0.1, ecdf_bounds_threshold = 1e-3) {
     marginal <- list()
     marginal$type <- "ecdf.pareto"
@@ -371,7 +367,6 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @export
-#' @examples
 marginal.transform <- function(x, marginal) {
     stopifnot(class(marginal) == "mvd.marginal")
 
@@ -439,7 +434,6 @@ marginal.transform <- function(x, marginal) {
 #' description
 #' @param transformed Matrix or vector of transformed samples. For matrices, rows are samples and columns are variables.
 #' @export
-#' @examples
 reverse.transform.marginals <- function(transformed, marginal) {
     stopifnot(class(marginal) == "mvd.marginal")
 
@@ -493,7 +487,6 @@ reverse.transform.marginals <- function(transformed, marginal) {
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param log Whether to return the density in log
 #' @export
-#' @examples
 marginal.pdf <- function(marginal, x, log = T) {
     stopifnot(class(marginal) == "mvd.marginal")
     stopifnot(log)

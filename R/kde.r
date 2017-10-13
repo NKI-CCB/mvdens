@@ -10,7 +10,6 @@ library(mvtnorm)
 #' @param verbose
 #' @param ... Further arguments are passed to bw.fn
 #' @export
-#' @examples
 #' x <- rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1)))
 #' fit <- fit.kde(x)
 #' fit <- fit.kde(x, bw.fn = Hpi, diagonal = F)
@@ -48,7 +47,6 @@ fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...
 #' @param diagonal If true, estimate a diagonal bandwidth matrix; otherwise estimate a full bandwidth matrix.
 #' @param verbose
 #' @export
-#' @examples
 #' x <- exp(rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1))))
 #' fit <- fit.kde(x, rbind(c(0,inf), c(0, inf))
 #' fit <- fit.kde(x, rbind(c(0,inf), c(0, inf), bw.fn = Hpi, diagonal = F)

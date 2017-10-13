@@ -72,7 +72,6 @@
 #' @param verbose Display the progress (when parallel=F)
 #' @param fit.params A named list with parameters to be relayed to the density fitting functions.
 #' @export
-#' @examples
 #' cl <- makeCluster(6)
 #' registerDoParallel(cl)
 #' foreach(i = 1:6) %dopar% { library(mvdens) }

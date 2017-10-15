@@ -16,7 +16,7 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
     result$type <- "vine.copula"
     if (!is.null(marginalfn)) {
         result$marginal <- marginalfn(x, bounds)
-        transformed <- marginal.transform(x, result$marginal)
+        transformed <- mvd.marginal.transform(x, result$marginal)
     } else {
         result$marginal <- NULL
         transformed <- x
@@ -34,7 +34,7 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
 #' @export
 evaluate.vine.copula <- function(fit, x, log = F) {
     if (!is.null(fit$marginal)) {
-        transformed <- marginal.transform(x, fit$marginal)
+        transformed <- mvd.marginal.transform(x, fit$marginal)
     } else {
         transformed <- x
     }

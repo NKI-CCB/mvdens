@@ -139,13 +139,13 @@ mvd.export.bcm <- function(bcm.model, fit, outfn)
                 xmlAttrs(margin_node) <- c(name = bcm.model$variables[i],
                                            type = "ecdf",
                                            bw = fit$marginal$bw[i],
-                                           x = paste(sort(fit$marginal$x[[i]]), collapse = ";"))
+                                           x = paste(sort(fit$marginal$x[,i]), collapse = ";"))
             } else if (fit$marginal$type == "ecdf.pareto") {
 
                 xmlAttrs(margin_node) <- c(name = bcm.model$variables[i],
                                            type = "ecdf-pareto",
                                            bw = fit$marginal$ecdf$bw[i],
-                                           x = paste(sort(fit$marginal$ecdf$x[[i]]), collapse = ";"))
+                                           x = paste(sort(fit$marginal$ecdf$x[,i]), collapse = ";"))
                 if (length(fit$marginal$lower.tails[[i]]) > 0) {
                     xmlAttrs(margin_node) <- c(xmlAttrs(margin_node),
                                                 lxi = fit$marginal$lower.tails[[i]]$xi,

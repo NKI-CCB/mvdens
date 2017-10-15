@@ -13,19 +13,20 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
 
     marginal$ecdfs <- apply(x, 2, ecdf)
     marginal$varnames <- colnames(x)
-    marginal$x <- list()
+    marginal$x <- x
+    marginal$x_reflected <- list()
     marginal$correction_factor <- rep(1, ncol(x))
     for (i in 1:ncol(x)) {
-        marginal$x[[i]] <- x[, i]
+        marginal$x_reflected[[i]] <- x[, i]
         if (reflect_bounds) {
             if (bounds[i, 1] != -Inf) {
                 reflected <- bounds[i, 1] - (x[, i] - bounds[i, 1])
-                marginal$x[[i]] <- c(marginal$x[[i]], reflected)
+                marginal$x_reflected[[i]] <- c(marginal$x_reflected[[i]], reflected)
                 marginal$correction_factor[i] <- marginal$correction_factor[i] + 1
             }
             if (bounds[i, 2] != Inf) {
                 reflected <- bounds[i, 2] + (bounds[i, 2] - x[, i])
-                marginal$x[[i]] <- c(marginal$x[[i]], reflected)
+                marginal$x_reflected[[i]] <- c(marginal$x_reflected[[i]], reflected)
                 marginal$correction_factor[i] <- marginal$correction_factor[i] + 1
             }
         }
@@ -33,8 +34,8 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
 
     marginal$bw <- rep(NA, ncol(x))
     for (i in 1:ncol(x)) {
-        hmax <- 10 * sd(marginal$x[[i]])
-        marginal$bw[i] <- bw.SJ(marginal$x[[i]], lower = 1e-6 * hmax, upper = hmax)
+        hmax <- 10 * sd(marginal$x_reflected[[i]])
+        marginal$bw[i] <- bw.SJ(marginal$x_reflected[[i]], lower = 1e-6 * hmax, upper = hmax)
     }
 
     return(structure(marginal, class = "mvd.marginal"))
@@ -318,13 +319,13 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
     use.pareto.tail <- matrix(T, ncol(x), 2)
     for (i in 1:ncol(x)) {
         if (bounds[i, 1] != -Inf) {
-            dp <- sum(dnorm(bounds[i, 1], marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
-            dp <- dp / length(marginal$ecdf$x[[i]])
+            dp <- sum(dnorm(bounds[i, 1], marginal$ecdf$x_reflected[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x_reflected[[i]])
             use.pareto.tail[i, 1] <- dp < ecdf_bounds_threshold
         }
         if (bounds[i, 2] != Inf) {
-            dp <- sum(dnorm(bounds[i, 2], marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
-            dp <- dp / length(marginal$ecdf$x[[i]])
+            dp <- sum(dnorm(bounds[i, 2], marginal$ecdf$x_reflected[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x_reflected[[i]])
             use.pareto.tail[i, 2] <- dp < ecdf_bounds_threshold
         }
     }
@@ -333,8 +334,8 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
         if (use.pareto.tail[i, 1]) {
             u <- as.numeric(quantile(x[, i], pareto_threshold))
 
-            dp <- sum(dnorm(u, marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
-            dp <- dp / length(marginal$ecdf$x[[i]])
+            dp <- sum(dnorm(u, marginal$ecdf$x_reflected[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x_reflected[[i]])
 
             marginal$lower.tails[[i]] <- .fit.pareto.tail(-x[, i], - u, pareto_threshold / dp)
             marginal$lower.tails[[i]]$u <- u
@@ -346,8 +347,8 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
         if (use.pareto.tail[i, 2]) {
             u <- as.numeric(quantile(x[, i], 1 - pareto_threshold))
 
-            dp <- sum(dnorm(u, marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
-            dp <- dp / length(marginal$ecdf$x[[i]])
+            dp <- sum(dnorm(u, marginal$ecdf$x_reflected[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+            dp <- dp / length(marginal$ecdf$x_reflected[[i]])
 
             marginal$upper.tails[[i]] <- .fit.pareto.tail(x[, i], u, pareto_threshold / dp)
             marginal$upper.tails[[i]]$u <- u
@@ -367,7 +368,7 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @export
-marginal.transform <- function(x, marginal) {
+mvd.marginal.transform <- function(x, marginal) {
     stopifnot(class(marginal) == "mvd.marginal")
 
     if (!is.matrix(x)) {

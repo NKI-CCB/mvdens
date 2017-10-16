@@ -488,7 +488,7 @@ reverse.transform.marginals <- function(transformed, marginal) {
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param log Whether to return the density in log
 #' @export
-marginal.pdf <- function(marginal, x, log = T) {
+mvd.marginal.pdf <- function(marginal, x, log = T) {
     stopifnot(class(marginal) == "mvd.marginal")
     stopifnot(log)
 
@@ -498,8 +498,8 @@ marginal.pdf <- function(marginal, x, log = T) {
         stopifnot(ncol(x) == length(marginal$bw))
         for (i in 1:ncol(x)) {
             for (j in 1:nrow(x)) {
-                dp <- sum(dnorm(x[j, i], marginal$x[[i]], marginal$bw[i])) * marginal$correction_factor[i]
-                p[j, i] <- log(dp) - log(length(marginal$x[[i]]))
+                dp <- sum(dnorm(x[j, i], marginal$x_reflected[[i]], marginal$bw[i])) * marginal$correction_factor[i]
+                p[j, i] <- log(dp) - log(length(marginal$x_reflected[[i]]))
             }
         }
     } else if (marginal$type == "ecdf.pareto") {
@@ -516,8 +516,8 @@ marginal.pdf <- function(marginal, x, log = T) {
                 is_body[is_tail] <- F
             }
             for (j in which(is_body)) {
-                dp <- sum(dnorm(x[j, i], marginal$ecdf$x[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
-                p[j, i] <- log(dp) - log(length(marginal$ecdf$x[[i]]))
+                dp <- sum(dnorm(x[j, i], marginal$ecdf$x_reflected[[i]], marginal$ecdf$bw[i])) * marginal$ecdf$correction_factor[i]
+                p[j, i] <- log(dp) - log(length(marginal$ecdf$x_reflected[[i]]))
             }
         }
     } else if (marginal$type == "parametric") {
@@ -561,7 +561,7 @@ marginal.pdf <- function(marginal, x, log = T) {
 
 marginal.correct.p <- function(marginal, x, p, log = T) {
     stopifnot(class(marginal) == "mvd.marginal")
-    mp <- marginal.pdf(marginal, x, log)
+    mp <- mvd.marginal.pdf(marginal, x, log)
     for (i in 1:ncol(x)) {
         p <- p + mp[, i]
     }

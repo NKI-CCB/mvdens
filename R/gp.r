@@ -106,6 +106,11 @@
     return(.gp.log.marginal.likelihood(result$l, x, result$b2, result, verbose))
 }
 
+.gp.cv.optimize2 <- function(par, result, verbose) {
+    result$sigman <- par[2]
+    .gp.cv.optimize(par[1], result, verbose)
+}
+
 .gp.cv.optimize <- function(l, result, verbose) {
     nfolds <- 5
     n <- result$n
@@ -153,7 +158,7 @@
     rmse <- sqrt(sum(sse) / n)
 
     if (verbose) {
-         cat(c("l:", l, "rmse:", rmse, "\n"))
+         cat(c("l:", l, "sigman:", result$sigman, "rmse:", rmse, "\n"))
     }
 
     return(rmse)
@@ -195,14 +200,23 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
 
     result$x <- x
     result$p <- p
-    result$sigman <- sigman
     result$log <- F
 
     if (optimize) {
         #if (isotropic) {
             stopifnot(length(l) > 1)
-            opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
-            result$l <- opt$minimum
+            if (length(sigman) > 1) { 
+                require(nloptr)
+
+                options <- nl.opts(list(ftol_rel = 1e-6))
+                opt <- sbplx(c(mean(l), mean(sigman)), .gp.cv.optimize2, c(l[1], sigman[1]), c(l[2], sigman[2]), result = result, verbose = verbose, control=options)
+                result$l <- opt$par[1]
+                result$sigman <- opt$par[2]
+            } else {
+                result$sigman <- sigman
+                opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
+                result$l <- opt$minimum
+            }
         #} else {
         #    require(nloptr)
         #    stopifnot(ncol(l) == 3 && nrow(l) == ncol(x))
@@ -211,6 +225,7 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
         #}
     } else {
         result$l <- l
+        result$sigman <- sigman
     }
 
     result$kxx <- result$kernel(result$x, result$x, result$l) + result$sigman * diag(result$n)

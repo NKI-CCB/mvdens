@@ -4,7 +4,8 @@
 \alias{fit.kde}
 \title{Fit a kernel density estimate}
 \usage{
-fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...)
+fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = TRUE, verbose = FALSE,
+  ...)
 }
 \arguments{
 \item{x}{Matrix or vector of samples. For matrices, rows are samples and columns are variables.}
@@ -15,13 +16,15 @@ fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = T, verbose = F, ...)
 
 \item{diagonal}{If true, estimate a diagonal bandwidth matrix; otherwise estimate a full bandwidth matrix.}
 
+\item{verbose}{No effect.}
+
 \item{...}{Further arguments are passed to bw.fn}
 }
 \description{
 description
 }
 \examples{
-x <- rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1)))
+x <- mvtnorm::rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1)))
 fit <- fit.kde(x)
-fit <- fit.kde(x, bw.fn = Hpi, diagonal = F)
+fit <- fit.kde(x, bw.fn = ks::Hpi, diagonal = FALSE)
 }

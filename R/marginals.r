@@ -1,7 +1,7 @@
 #' Marginal function for use in fit.vine.copula: empirical distribution function
-#'
-#' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param reflect_bounds If true, reflect samples across bounds to improve the estimate near the boundaries.
 #' @export
 fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T) {
     marginal <- list()
@@ -37,18 +37,15 @@ fit.marginal.ecdf <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, nco
         hmax <- 10 * sd(marginal$x_reflected[[i]])
         marginal$bw[i] <- bw.SJ(marginal$x_reflected[[i]], lower = 1e-6 * hmax, upper = hmax)
     }
-
+    
     return(structure(marginal, class = "mvd.marginal"))
 }
 
 #' Marginal function for use in fit.vine.copula: single parametric distribution
-#'
-#' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
 #' @export
 fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
-    library(MASS)
-
     if (!is.matrix(x)) {
         x <- as.matrix(x)
     }
@@ -68,7 +65,7 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             marginal$dists[[i]]$type <- "beta"
             marginal$dists[[i]]$min <- 0
             marginal$dists[[i]]$max <- 1
-            dfit <- fitdistr(x[, i], dbeta, list(shape1 = 1, shape2 = 1), control = fitctrl)
+            dfit <- MASS::fitdistr(x[, i], dbeta, list(shape1 = 1, shape2 = 1), control = fitctrl)
             marginal$dists[[i]]$shape1 <- as.numeric(dfit$estimate["shape1"])
             marginal$dists[[i]]$shape2 <- as.numeric(dfit$estimate["shape2"])
         } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {
@@ -76,8 +73,8 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             marginal$dists[[i]] <- list()
             marginal$dists[[i]]$type <- "gamma"
             rescale <- 1 / mean(x[, i])
-            dfit <- fitdistr(x[, i], dgamma, list(shape = 2, scale = 1), control = fitctrl)
-            dfit <- fitdistr(x[, i] * rescale, dgamma, list(shape = 2, scale = 1), control = fitctrl)
+            dfit <- MASS::fitdistr(x[, i], dgamma, list(shape = 2, scale = 1), control = fitctrl)
+            dfit <- MASS::fitdistr(x[, i] * rescale, dgamma, list(shape = 2, scale = 1), control = fitctrl)
             marginal$dists[[i]]$shape <- as.numeric(dfit$estimate["shape"])
             marginal$dists[[i]]$scale <- as.numeric(dfit$estimate["scale"]) / rescale
         } else if (bounds[i, 1] == -Inf && bounds[i, 2] == Inf) {
@@ -94,7 +91,7 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
             marginal$dists[[i]]$type <- "beta"
             marginal$dists[[i]]$min <- a
             marginal$dists[[i]]$max <- b
-            dfit <- fitdistr((x[, i] - a) / (b - a), dbeta, list(shape1 = 1, shape2 = 1), control = fitctrl)
+            dfit <- MASS::fitdistr((x[, i] - a) / (b - a), dbeta, list(shape1 = 1, shape2 = 1), control = fitctrl)
             marginal$dists[[i]]$shape1 <- as.numeric(dfit$estimate["shape1"])
             marginal$dists[[i]]$shape2 <- as.numeric(dfit$estimate["shape2"])
         }
@@ -106,14 +103,10 @@ fit.marginal.parametric <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(In
 }
 
 #' Marginal function for use in fit.vine.copula: mixture of parametric distributions
-#'
-#' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
 #' @export
 fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x)))) {
-    library(mixtools)
-    library(betareg)
-
     if (!is.matrix(x)) {
         x <- as.matrix(x)
     }
@@ -135,7 +128,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
 
             d <- data.frame(y = x[, i])
             cf <- coef(lm(qlogis(y) ~ 1, data = d))
-            m <- betamix(y ~ 1 | 1, data = d, k = 1:3, control = betareg.control(start = list(mean = 0, precision = 1)), FLXcontrol = list(tolerance = 0.01))
+            m <- betareg::betamix(y ~ 1 | 1, data = d, k = 1:3, control = betareg::betareg.control(start = list(mean = 0, precision = 1)), FLXcontrol = list(tolerance = 0.01))
             k <- m$flexmix@k
             if (k == 1) {
                 mu <- plogis(coef(m)[1])
@@ -158,7 +151,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             ms <- list()
             BIC <- rep(NA, 3)
             for (k in 1:3) {
-                ms[[k]] <- gammamixEM(rescaled, k = k, epsilon = 0.01)
+                ms[[k]] <- mixtools::gammamixEM(rescaled, k = k, epsilon = 0.01)
                 BIC[k] <- log(nrow(x)) * 2 * k - 2 * ms[[k]]$loglik
             }
             k <- which.min(BIC)
@@ -180,7 +173,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             ms[[1]]$sigma <- sd(x[, i])
             BIC[1] <- log(nrow(x)) * 2 - 2 * sum(dnorm(x[, i], ms[[1]]$mu, ms[[1]]$sigma, log = T))
             for (k in 2:3) {
-                capture.output(return_value <- try(ms[[k]] <- normalmixEM(x[, i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)))
+                capture.output(return_value <- try(ms[[k]] <- mixtools::normalmixEM(x[, i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)))
                 if (inherits(return_value, "try-error")) {
                     BIC[k] <- NA
                 } else {
@@ -203,12 +196,12 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             marginal$dists[[i]]$max <- b
 
             d <- data.frame(y = (x[, i] - a) / (b - a))
-            m <- betamix(y ~ 1, data = d, k = 1:3, FLXcontrol = list(tolerance = 0.01))
-
+            m <- betareg::betamix(y ~ 1, data = d, k = 1:3, FLXcontrol = list(tolerance = 0.01))
+            
             k <- m$flexmix@k
             if (k == 1) {
-                mu <- plogis(coef(m)[1])
-                phi <- exp(coef(m)[2])
+              mu <- plogis(coef(m)[1])
+              phi <- exp(coef(m)[2])
                 marginal$dists[[i]]$p <- 1
             } else {
                 mu <- plogis(coef(m)[, 1])
@@ -238,7 +231,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
         beta0 <- 0.5 * xbar * (((xbar * xbar) / s2) + 1)
         theta <- c(xi0, beta0)
 
-        negloglik <- function(theta, tmp) {
+        negloglik1 <- function(theta, tmp) {
             xi <- theta[1]
             beta <- theta[2]
             cond1 <- beta <= 0
@@ -253,14 +246,14 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             f
         }
 
-        fit <- optim(theta, negloglik, lower = c(0, 0), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
+        fit <- optim(theta, negloglik1, lower = c(0, 0), upper = c(Inf, Inf), tmp = excess, method = "L-BFGS-B")
         result$xi <- fit$par[1]
         result$beta <- fit$par[2]
     } else {
         s2 <- var(excess)
         xi0 <- -0.5 * (((xbar * xbar) / s2) - 1)
 
-        negloglik <- function(xi, tmp, beta) {
+        negloglik2 <- function(xi, tmp, beta) {
             cond1 <- beta <= 0
             cond2 <- (xi <= 0) && (max(tmp) > (-beta / xi))
             if (cond1 || cond2) {
@@ -273,7 +266,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             f
         }
 
-        fit <- optimize(negloglik, lower = 0, upper = 1000, tmp = excess, beta = fixed_beta)
+        fit <- optimize(negloglik2, lower = 0, upper = 1000, tmp = excess, beta = fixed_beta)
         result$xi <- fit$minimum
         result$beta <- fixed_beta
     }
@@ -296,15 +289,17 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
     return(p)
 }
 
-#' Marginal function for use in fit.vine.copula: empirical distribution function with pareto tails
+# Marginal function for use in fit.vine.copula: empirical distribution function with pareto tails
 .pareto.quantile <- function(x, u, xi, beta) {
     return(u + beta * ((1.0 - x) ^ (-xi) - 1.0) / xi);
 }
 
-#' Marginal ecdf+pareto tail
-#'
-#' description
+#' Marginal function for use in fit.vine.copula: ecdf + pareto tail
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param reflect_bounds If true, reflect samples across bounds to improve the estimate near the boundaries.
+#' @param pareto_threshold Cumulative probability threshold for the start of the pareto tail
+#' @param ecdf_bounds_threshold Use a pareto tail only if the density of the kernel density estimate at the boundary is below this value.
 #' @export
 fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), reflect_bounds = T, pareto_threshold = 0.1, ecdf_bounds_threshold = 1e-3) {
     marginal <- list()
@@ -363,8 +358,6 @@ fit.marginal.ecdf.pareto <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(I
 }
 
 #' Transform variables to U[0,1] using a fitted marginal function
-#'
-#' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @export
@@ -431,9 +424,8 @@ mvd.marginal.transform <- function(x, marginal) {
 }
 
 #' Reverse transform variables from U[0,1]
-#'
-#' description
 #' @param transformed Matrix or vector of transformed samples. For matrices, rows are samples and columns are variables.
+#' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @export
 reverse.transform.marginals <- function(transformed, marginal) {
     stopifnot(class(marginal) == "mvd.marginal")
@@ -468,10 +460,10 @@ reverse.transform.marginals <- function(transformed, marginal) {
             ix <- sample(length(margin$p), nrow(x), replace = T, prob = margin$p)
             if (margin$type == "beta") {
                 x[, i] <- margin$min + qbeta(transformed[, i], margin$a[ix], margin$b[ix]) * (margin$max - margin$min)
-            } else if (margin$type == "beta") {
+            } else if (margin$type == "normal") {
                 x[, i] <- qnorm(transformed[, i], margin$mu[ix], margin$sigma[ix])
-            } else if (margin$type == "beta") {
-                x[, i] <- qbeta(transformed[, i], shape = margin$shape[ix], scale = margin$scale[ix])
+            } else if (margin$type == "gamma") {
+                x[, i] <- qgamma(transformed[, i], shape = margin$shape[ix], scale = margin$scale[ix])
             }
         }
     } else {
@@ -482,8 +474,6 @@ reverse.transform.marginals <- function(transformed, marginal) {
 }
 
 #' Probability density function of a marginal distribution fitted with one of the marginal distribution functions.
-#'
-#' description
 #' @param marginal mvd.marginal object obtained from one of the marginal fitting functions.
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param log Whether to return the density in log
@@ -559,7 +549,7 @@ mvd.marginal.pdf <- function(marginal, x, log = T) {
     return(p)
 }
 
-marginal.correct.p <- function(marginal, x, p, log = T) {
+.marginal.correct.p <- function(marginal, x, p, log = T) {
     stopifnot(class(marginal) == "mvd.marginal")
     mp <- mvd.marginal.pdf(marginal, x, log)
     for (i in 1:ncol(x)) {

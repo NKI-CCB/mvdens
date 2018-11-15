@@ -9,7 +9,7 @@
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param bounds Bounds
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
 #' @export
 mvd.transform_to_unbounded <- function(x, bounds) {
     transformed <- matrix(NA, nrow = nrow(x), ncol = ncol(x))
@@ -42,7 +42,7 @@ mvd.transform_to_unbounded <- function(x, bounds) {
 #'
 #' description
 #' @param transformed_x Matrix or vector of transformed samples. For matrices, rows are samples and columns are variables.
-#' @param bounds Bounds
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
 #' @export
 mvd.transform_from_unbounded <- function(transformed_x, bounds) {
     x <- matrix(NA, nrow = nrow(x), ncol = ncol(x))
@@ -68,10 +68,10 @@ mvd.transform_from_unbounded <- function(transformed_x, bounds) {
 }
 
 #' Probability density correction for variable transformation
-#'
-#' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
-#' @param bounds Bounds
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param p Probability densities to correct
+#' @param log Specifies whether p is in log scale
 #' @export
 mvd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
     if (log) {
@@ -114,7 +114,7 @@ mvd.correct_p_for_transformation <- function(x, bounds, p, log = T) {
     return(p)
 }
 
-mvd.transform_name <- function(bounds, i) {
+.mvd.transform_name <- function(bounds, i) {
     if (bounds[i, 1] == 0 && bounds[i, 2] == 1) {
         return("logit")
     } else if (bounds[i, 1] == 0 && bounds[i, 2] == Inf) {

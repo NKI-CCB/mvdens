@@ -43,137 +43,139 @@
             sigma[i, ] <- (1 + y) * exp(-y)
         }
     }
-
-    return(sigma)
+  
+  return(sigma)
 }
 
 .kernel.matern32.integral <- function(alpha, l, D) {
-    d <- 2 * (1+D) * (l * sqrt(pi/3)) ^ D * gamma(D) / gamma(D / 2)
-    integral <- sum(d * alpha)
-    return(integral)
+  d <- 2 * (1+D) * (l * sqrt(pi/3)) ^ D * gamma(D) / gamma(D / 2)
+  integral <- sum(d * alpha)
+  return(integral)
 }
 
 .kernel.matern52 <- function(x1, x2, l) {
-    if (is.matrix(x1)) {
-        sigma <- matrix(0, nrow(x1), nrow(x2))
-        for (i in 1:nrow(sigma)) {
-            v <- t(x1[i,] - t(x2))
-            rsq <- apply(v * v, 1, sum)
-            y <- sqrt(5) * sqrt(rsq) / l
-            sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
-        }
-    } else {
-        sigma <- matrix(0, length(x1), length(x2))
-        for (i in 1:nrow(sigma)) {
-            v <- x1[i] - x2
-            y <- sqrt(3) * sqrt(v * v) / l
-            sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
-        }
+  if (is.matrix(x1)) {
+    sigma <- matrix(0, nrow(x1), nrow(x2))
+    for (i in 1:nrow(sigma)) {
+      v <- t(x1[i,] - t(x2))
+      rsq <- apply(v * v, 1, sum)
+      y <- sqrt(5) * sqrt(rsq) / l
+      sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
     }
-
-    return(sigma)
+  } else {
+    sigma <- matrix(0, length(x1), length(x2))
+    for (i in 1:nrow(sigma)) {
+      v <- x1[i] - x2
+      y <- sqrt(3) * sqrt(v * v) / l
+      sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
+    }
+  }
+  
+  return(sigma)
 }
 
 .gp.log.marginal.likelihood <- function(l, b1, b2, result, verbose) {
-    kxx <- result$kernel(result$x, result$x, l) + result$sigman * diag(result$n)
-    
-    return_value <- try(L <- chol(kxx), silent = !verbose)
-    if (inherits(return_value, "try-error")) {
-      return(NA)
+  kxx <- result$kernel(result$x, result$x, l) + result$sigman * diag(result$n)
+  
+  return_value <- try(L <- chol(kxx), silent = !verbose)
+  if (inherits(return_value, "try-error")) {
+    return(NA)
+  }
+  
+  if (is.null(result$meanfn)) {
+    mean_sub <- rep(NA, length(result$p))
+    for (i in 1:length(result$p)) {
+      mean_sub[i] <- result$p[i] - b1 - b2 * (result$xcentered[i,] %*% result$xcentered[i,])
     }
-
-    if (is.null(result$meanfn)) {
-        mean_sub <- rep(NA, length(result$p))
-        for (i in 1:length(result$p)) {
-            mean_sub[i] <- result$p[i] - b1 - b2 * (result$xcentered[i,] %*% result$xcentered[i,])
-        }
-        p1 <- sum(backsolve(L, mean_sub, transpose = T) ^ 2)
-    } else {
-        p1 <- sum(backsolve(L, result$pmean_sub, transpose = T) ^ 2)
-    }
-    logdet <- 2.0 * sum(log(diag(L)))
-    logml <- -0.5 * p1 - 0.5 * logdet - 0.5 * result$n * log(2*pi)
-    if (verbose) {
-        cat(c("l:", l, "b1:", b1, "b2:", b2, "logml:",logml, "\n"))
-    }
-    return(logml)
+    p1 <- sum(backsolve(L, mean_sub, transpose = T) ^ 2)
+  } else {
+    p1 <- sum(backsolve(L, result$pmean_sub, transpose = T) ^ 2)
+  }
+  logdet <- 2.0 * sum(log(diag(L)))
+  logml <- -0.5 * p1 - 0.5 * logdet - 0.5 * result$n * log(2*pi)
+  if (verbose) {
+    cat(c("l:", l, "b1:", b1, "b2:", b2, "logml:",logml, "\n"))
+  }
+  return(logml)
 }
 
 .gp.log.marginal.likelihood.optiml <- function(x, result, verbose) {
-    return(.gp.log.marginal.likelihood(x, result$b1, result$b2, result, verbose))
+  return(.gp.log.marginal.likelihood(x, result$b1, result$b2, result, verbose))
 }
 .gp.log.marginal.likelihood.optimb1 <- function(x, result, verbose) {
-    return(.gp.log.marginal.likelihood(result$l, x, result$b2, result, verbose))
+  return(.gp.log.marginal.likelihood(result$l, x, result$b2, result, verbose))
 }
 
 .gp.cv.optimize2 <- function(par, result, verbose) {
-    result$sigman <- par[2]
-    .gp.cv.optimize(par[1], result, verbose)
+  result$sigman <- par[2]
+  .gp.cv.optimize(par[1], result, verbose)
 }
 
 .gp.cv.optimize <- function(l, result, verbose) {
-    nfolds <- 5
-    n <- result$n
+  nfolds <- 5
+  n <- result$n
+  if (is.matrix(result$x)) {
+    D <- ncol(result$x)
+  } else {
+    D <- 1
+  }
+  
+  sse <- rep(NA, nfolds)
+  for (fi in 1:nfolds) {
+    foldsize <- n / nfolds
+    test_ix <- (fi - 1) * foldsize + 1:foldsize
+    train_ix <- setdiff(1:n, test_ix)
+    
     if (is.matrix(result$x)) {
-      D <- ncol(result$x)
+      xtrain <- result$x[train_ix,]
+      xtest <- result$x[test_ix,]
     } else {
-      D <- 1
+      xtrain <- result$x[train_ix]
+      xtest <- result$x[test_ix]
     }
-
-    sse <- rep(NA, nfolds)
-    for (fi in 1:nfolds) {
-        foldsize <- n / nfolds
-        test_ix <- (fi - 1) * foldsize + 1:foldsize
-        train_ix <- setdiff(1:n, test_ix)
-
-        if (is.matrix(result$x)) {
-          xtrain <- result$x[train_ix,]
-          xtest <- result$x[test_ix,]
-        } else {
-          xtrain <- result$x[train_ix]
-          xtest <- result$x[test_ix]
-        }
-        nt <- length(train_ix)
-        K <- result$kernel(xtrain, xtrain, l)
-
-        return_value <- try(L <- chol(K + result$sigman * diag(nt)), silent = !verbose)
-        if (inherits(return_value, "try-error")) {
-            return(Inf)
-        }
-
-        alpha <- backsolve(L, backsolve(L, result$p[train_ix], transpose = T))
-
-        ntest <- length(test_ix)
-        ktest <- result$kernel(xtest, xtrain, l)
-
-        integral <- result$kernel.integral(alpha, l, D)
-        f <- (ktest %*% alpha)
-        diff <- result$p[test_ix] - f
-        sse[fi] <- sum(diff ^ 2)
-        if (integral < 0) {
-            sse[fi] <- sse[fi] * 1e10
-        }
-
+    nt <- length(train_ix)
+    K <- result$kernel(xtrain, xtrain, l)
+    
+    return_value <- try(L <- chol(K + result$sigman * diag(nt)), silent = !verbose)
+    if (inherits(return_value, "try-error")) {
+      return(Inf)
     }
-    rmse <- sqrt(sum(sse) / n)
-
-    if (verbose) {
-         cat(c("l:", l, "sigman:", result$sigman, "rmse:", rmse, "\n"))
+    
+    alpha <- backsolve(L, backsolve(L, result$p[train_ix], transpose = T))
+    
+    ntest <- length(test_ix)
+    ktest <- result$kernel(xtest, xtrain, l)
+    
+    integral <- result$kernel.integral(alpha, l, D)
+    f <- (ktest %*% alpha)
+    diff <- result$p[test_ix] - f
+    sse[fi] <- sum(diff ^ 2)
+    if (integral < 0) {
+      sse[fi] <- sse[fi] * 1e10
     }
-
-    return(rmse)
+    
+  }
+  rmse <- sqrt(sum(sse) / n)
+  
+  if (verbose) {
+    cat(c("l:", l, "sigman:", result$sigman, "rmse:", rmse, "\n"))
+  }
+  
+  return(rmse)
 }
 
-#' Fit a Gaussian process density function
+#' Fit a Gaussian process density function.
 #'
 #' Fit a Gaussian process through the posterior density samples. The GP can optionally be normalized such that the predictive function integrates to 1.
 #' The GP assumes a zero mean, and can use either a squared exponential or Matern-type covariance function. A single length scale parameter is used, which is
 #' optimized by minimizing the RMSE in 5-fold cross validation.
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @param p Probability density at the sample locations; does not have to be normalized. Note that the probabilities should not be log transformed.
-#' @param kernel Which kernel to use, can be "se", "matern32" or "matern52".
+#' @param kernel Which kernel to use, can be "se" or "matern32".
+#' @param l If optimize == TRUE, this should be a vector of size two with the lower and upper bound for the length scale; if optimize == FALSE, this is the fixed length scale.
+#' @param optimize Boolean specifying whether l (and possibly sigman) should be optimized.
 #' @param normalize Boolean specifying whether to normalize the GP such that it integrates to 1.
-#' @param sigman Value added to the diagonal of the kernel matrix; can help numerical stability.
+#' @param sigman Can be either a fixed sigman or, if optimize == TRUE, this can also be a vector of size two specifying the lower and upper bound, and in this case sigman will be optimized along with l.
 #' @param verbose Display progress during the optimization of l.
 #' @export
 fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 1e-12, verbose = F) {
@@ -193,9 +195,9 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
     } else if (kernel == "matern32") {
         result$kernel <- .kernel.matern32
         result$kernel.integral <- .kernel.matern32.integral
-    } else if (kernel == "matern52") {
-        result$kernel <- .kernel.matern52
-        result$kernel.integral <- .kernel.matern52.integral
+#    } else if (kernel == "matern52") {
+#        result$kernel <- .kernel.matern52
+#        result$kernel.integral <- .kernel.matern52.integral
     }
 
     result$x <- x
@@ -203,26 +205,17 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
     result$log <- F
 
     if (optimize) {
-        #if (isotropic) {
-            stopifnot(length(l) > 1)
-            if (length(sigman) > 1) { 
-                require(nloptr)
-
-                options <- nl.opts(list(ftol_rel = 1e-6))
-                opt <- sbplx(c(mean(l), mean(sigman)), .gp.cv.optimize2, c(l[1], sigman[1]), c(l[2], sigman[2]), result = result, verbose = verbose, control=options)
-                result$l <- opt$par[1]
-                result$sigman <- opt$par[2]
-            } else {
-                result$sigman <- sigman
-                opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
-                result$l <- opt$minimum
-            }
-        #} else {
-        #    require(nloptr)
-        #    stopifnot(ncol(l) == 3 && nrow(l) == ncol(x))
-        #    opt <- sbplx(l[, 1], .gp.cv.optimize, l[, 2], l[, 3], result = result, verbose = verbose)
-        #    result$l <- opt$par
-        #}
+          stopifnot(length(l) > 1)
+          if (length(sigman) > 1) { 
+              options <- nloptr::nl.opts(list(ftol_rel = 1e-6))
+              opt <- nloptr::sbplx(c(mean(l), mean(sigman)), .gp.cv.optimize2, c(l[1], sigman[1]), c(l[2], sigman[2]), result = result, verbose = verbose, control=options)
+              result$l <- opt$par[1]
+              result$sigman <- opt$par[2]
+          } else {
+              result$sigman <- sigman
+              opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
+              result$l <- opt$minimum
+          }
     } else {
         result$l <- l
         result$sigman <- sigman

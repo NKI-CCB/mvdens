@@ -1,6 +1,3 @@
-library(VineCopula)
-#source("marginals.r")
-
 #' Fit a vine copula
 #'
 #' Fit a vine copula density function, using one of the marginal function for the marginal transformations, and using VineCopula::RVineStructureSelect for the vine copula function.
@@ -12,8 +9,8 @@ library(VineCopula)
 #' @param verbose Relayed to VineCopula::RVineStructureSelect 
 #' @export
 fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), trunclevel = NA, indeptest = F, verbose = F) {
-    result <- list()
-    result$type <- "vine.copula"
+  result <- list()
+  result$type <- "vine.copula"
     if (!is.null(marginalfn)) {
         result$marginal <- marginalfn(x, bounds)
         transformed <- mvd.marginal.transform(x, result$marginal)
@@ -21,9 +18,9 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
         result$marginal <- NULL
         transformed <- x
     }
-    result$RVM <- RVineStructureSelect(transformed, cores = 1, trunclevel = trunclevel, indeptest = indeptest, progress = verbose)
-    result$RVM$names <- colnames(x)
-    return(structure(result, class = "mvd.density"))
+  result$RVM <- VineCopula::RVineStructureSelect(transformed, cores = 1, trunclevel = trunclevel, indeptest = indeptest, progress = verbose)
+  result$RVM$names <- colnames(x)
+  return(structure(result, class = "mvd.density"))
 }
 
 #' Evaluate a vine copula
@@ -31,20 +28,21 @@ fit.vine.copula <- function(x, marginalfn, bounds = cbind(rep(-Inf, ncol(x)), re
 #' description
 #' @param fit An mvd.density object obtained from fit.vine.copula
 #' @param x Matrix or vector of samples at which to evaluate the vine copula. For matrices, rows are samples and columns are variables.
+#' @param log Return log probability density
 #' @export
 evaluate.vine.copula <- function(fit, x, log = F) {
-    if (!is.null(fit$marginal)) {
-        transformed <- mvd.marginal.transform(x, fit$marginal)
+  if (!is.null(fit$marginal)) {
+    transformed <- mvd.marginal.transform(x, fit$marginal)
+  } else {
+    transformed <- x
+  }
+  p_vc <- VineCopula::RVineLogLik(transformed, fit$RVM, separate = T)$loglik
+  if (!is.null(fit$marginal)) {
+    p <- .marginal.correct.p(fit$marginal, x, p_vc, log = T)
+  }
+  if (log) {
+      return(p)
     } else {
-        transformed <- x
-    }
-    p_vc <- RVineLogLik(transformed, fit$RVM, separate = T)$loglik
-    if (!is.null(fit$marginal)) {
-        p <- marginal.correct.p(fit$marginal, x, p_vc, log = T)
-    }
-    if (log) {
-        return(p)
-    } else {
-        return(exp(p))
+      return(exp(p))
     }
 }

@@ -1,7 +1,3 @@
-#source("utils.r")
-#source("gp.r")
-#source("vine_copula.r")
-
 #' Evaluate the probability density function of a density approximation
 #'
 #' description
@@ -65,9 +61,9 @@ mvd.pdf <- function(fit, x, log = FALSE) {
             p <- matrix(NA, nrow(x), fit$K)
             for (ki in 1:fit$K) {
                 if (log) {
-                    p[, ki] <- dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
+                    p[, ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
                 } else {
-                    p[, ki] <- dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = FALSE) * fit$proportions[ki]
+                    p[, ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = FALSE) * fit$proportions[ki]
                 }
             }
 
@@ -82,9 +78,9 @@ mvd.pdf <- function(fit, x, log = FALSE) {
             p <- rep(NA, fit$K)
             for (ki in 1:fit$K) {
                 if (log) {
-                    p[ki] <- dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
+                    p[ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
                 } else {
-                    p[ki] <- dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = FALSE) * fit$proportions[ki]
+                    p[ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = FALSE) * fit$proportions[ki]
                 }
             }
 

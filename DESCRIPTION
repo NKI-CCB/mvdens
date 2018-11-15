@@ -8,4 +8,4 @@ Description: Interface for fitting multivariate density functions, including ker
 Suggests: parallel,foreach,xml
 Depends: mixtools,mvtnorm,tmvtnorm,ks,VineCopula
 License: GPL-2
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.0

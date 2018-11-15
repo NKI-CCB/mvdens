@@ -63,17 +63,21 @@
     for (ki in 1:fit$k) {
         fit$component_weights[ki] <- sum(fit$weights[, ki]) / nrow(x)
         weighted <- cov.wt(x, fit$weights[, ki])
+        if (!is.null(fit$min_cov)) {
+          weighted$cov <- pmax(weighted$cov, fit$min_cov)
+        }
         fit$centers[ki,] <- weighted$center
         fit$covariances[[ki]] <- weighted$cov
     }
     return(fit)
 }
 
-.fit.gmm.internal <- function(x, K, truncated, bounds, epsilon, maxsteps, verbose) {
+.fit.gmm.internal <- function(x, K, truncated, bounds, min_cov, epsilon, maxsteps, verbose) {
     singular <- F
     for (j in 1:10) {
         fit <- .assign_kmeanspp(x, K)
         fit$bounds <- bounds
+        fit$min_cov <- min_cov
         fit$covariances <- list()
         fit <- .mixture_maximization_step(x, fit)
         
@@ -179,8 +183,8 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, v
 #' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
 #' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
-fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), epsilon = 1e-5, maxsteps = 1000, verbose = F) {
-    fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+    fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
 
     result <- list()
     result$type <- "gmm.truncated"
@@ -281,7 +285,7 @@ gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 
 #' @param maxsteps See fit.gmm.truncated
 #' @param verbose 
 #' @export
-gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
     result$BIC <- rep(NA, length(K))
@@ -295,7 +299,7 @@ gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep
             result$fits[[k]] <- NULL
             result$BIC[k] <- NA
         } else {
-            result$fits[[k]] <- fit.gmm.truncated(x, K[k], bounds = bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+            result$fits[[k]] <- fit.gmm.truncated(x, K[k], bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
             result$BIC[k] <- result$fits[[k]]$BIC
         }
     }

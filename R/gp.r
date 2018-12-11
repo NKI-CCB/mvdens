@@ -6,8 +6,6 @@
             v <- t(x1[i,] - t(x2))
             rsq <- apply(v * v, 1, sum)
             sigma[i,] <- exp(factor * rsq)
-            #y <- sqrt(3) * sqrt(rsq) / l
-            #sigma[i,j] <- (1 + y) * exp(-y)
         }
     } else {
         sigma <- matrix(0, length(x1), length(x2))
@@ -51,27 +49,6 @@
   d <- 2 * (1+D) * (l * sqrt(pi/3)) ^ D * gamma(D) / gamma(D / 2)
   integral <- sum(d * alpha)
   return(integral)
-}
-
-.kernel.matern52 <- function(x1, x2, l) {
-  if (is.matrix(x1)) {
-    sigma <- matrix(0, nrow(x1), nrow(x2))
-    for (i in 1:nrow(sigma)) {
-      v <- t(x1[i,] - t(x2))
-      rsq <- apply(v * v, 1, sum)
-      y <- sqrt(5) * sqrt(rsq) / l
-      sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
-    }
-  } else {
-    sigma <- matrix(0, length(x1), length(x2))
-    for (i in 1:nrow(sigma)) {
-      v <- x1[i] - x2
-      y <- sqrt(3) * sqrt(v * v) / l
-      sigma[i,] <- (1 + y + 5 * rsq / (3 * l * l)) * exp(-y)
-    }
-  }
-  
-  return(sigma)
 }
 
 .gp.log.marginal.likelihood <- function(l, b1, b2, result, verbose) {
@@ -151,6 +128,7 @@
     diff <- result$p[test_ix] - f
     sse[fi] <- sum(diff ^ 2)
     if (integral < 0) {
+      # Heavily penalize negative integrals
       sse[fi] <- sse[fi] * 1e10
     }
     
@@ -195,14 +173,11 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
     } else if (kernel == "matern32") {
         result$kernel <- .kernel.matern32
         result$kernel.integral <- .kernel.matern32.integral
-#    } else if (kernel == "matern52") {
-#        result$kernel <- .kernel.matern52
-#        result$kernel.integral <- .kernel.matern52.integral
     }
 
     result$x <- x
     result$p <- p
-    result$log <- F
+    result$log <- FALSE
 
     if (optimize) {
           stopifnot(length(l) > 1)

@@ -1,42 +1,42 @@
 
 .assign_kmeanspp <- function(x, K) {
-    stopifnot(K >= 1)
-    stopifnot(is.matrix(x))
+  stopifnot(K >= 1)
+  stopifnot(is.matrix(x))
 
-    result <- list()
-    result$k <- K
+  result <- list()
+  result$k <- K
 
-    center_ix <- rep(NA, K)
-    center_ix[1] <- sample.int(nrow(x), 1)
-    result$centers <- matrix(NA, K, ncol(x))
-    result$centers[1,] <- x[center_ix[1],]
+  center_ix <- rep(NA, K)
+  center_ix[1] <- sample.int(nrow(x), 1)
+  result$centers <- matrix(NA, K, ncol(x))
+  result$centers[1,] <- x[center_ix[1],]
 
-    if (K > 1) {
-        for (i in 2:K) {
-            min_dist_sq <- rep(NA, nrow(x))
-            for (xi in 1:nrow(x)) {
-                dist_sq <- rep(NA, i - 1)
-                for (j in 1:(i - 1)) {
-                    dist_sq[j] <- sum((x[xi,] - result$centers[j,]) ^ 2)
-                }
-                min_dist_sq[xi] <- min(dist_sq)
-            }
+  if (K > 1) {
+      for (i in 2:K) {
+          min_dist_sq <- rep(NA, nrow(x))
+          for (xi in 1:nrow(x)) {
+              dist_sq <- rep(NA, i - 1)
+              for (j in 1:(i - 1)) {
+                  dist_sq[j] <- sum((x[xi,] - result$centers[j,]) ^ 2)
+              }
+              min_dist_sq[xi] <- min(dist_sq)
+          }
 
-            total <- sum(min_dist_sq)
-            center_ix[i] <- sample.int(nrow(x), 1, prob = min_dist_sq / total)
-            result$centers[i,] <- x[center_ix[i],]
-        }
-    }
-    
-    result$weights <- matrix(0, nrow(x), K)
-    
-    for (xi in 1:nrow(x)) {
-      dist_sq <- apply(result$centers, 1, function(v) { return(sum((x[xi,] - v) ^ 2)) })
-      assign_ix <- which.min(dist_sq)
-      result$weights[xi, assign_ix] <- 1
-    }
-    
-    return(result)
+          total <- sum(min_dist_sq)
+          center_ix[i] <- sample.int(nrow(x), 1, prob = min_dist_sq / total)
+          result$centers[i,] <- x[center_ix[i],]
+      }
+  }
+  
+  result$weights <- matrix(0, nrow(x), K)
+  
+  for (xi in 1:nrow(x)) {
+    dist_sq <- apply(result$centers, 1, function(v) { return(sum((x[xi,] - v) ^ 2)) })
+    assign_ix <- which.min(dist_sq)
+    result$weights[xi, assign_ix] <- 1
+  }
+  
+  return(result)
 }
 
 .mixture_expectation_step <- function(x, fit, truncated=T) {
@@ -59,9 +59,17 @@
 }
 
 .mixture_maximization_step <- function(x, fit) {
-        if (!is.null(fit$min_cov)) {
-          weighted$cov <- pmax(weighted$cov, fit$min_cov)
-        }
+  fit$component_weights <- rep(NA, fit$k)
+  for (ki in 1:fit$k) {
+    fit$component_weights[ki] <- sum(fit$weights[, ki]) / nrow(x)
+    weighted <- cov.wt(x, fit$weights[, ki])
+    if (!is.null(fit$min_cov)) {
+      weighted$cov <- pmax(weighted$cov, fit$min_cov)
+    }
+    fit$centers[ki,] <- weighted$center
+    fit$covariances[[ki]] <- weighted$cov
+  }
+  return(fit)
 }
 
 .fit.gmm.internal <- function(x, K, truncated, bounds, min_cov, epsilon, maxsteps, verbose) {
@@ -69,12 +77,38 @@
   for (j in 1:10) {
     fit <- .assign_kmeanspp(x, K)
     fit$bounds <- bounds
+    fit$min_cov <- min_cov
     fit$covariances <- list()
     fit <- .mixture_maximization_step(x, fit)
     
     previous_logl <- -Inf
     singular <- F
-        fit$min_cov <- min_cov
+    for (i in 1:maxsteps) {
+      return_value <- try(fit <- .mixture_expectation_step(x, fit, truncated), silent = !verbose)
+      if (inherits(return_value, "try-error")) {
+        singular <- T
+        break
+      }
+      
+      if (any(is.na(fit$weights))) {
+        singular <- T
+        break
+      }
+      if (any(apply(fit$weights, 2, sum, na.rm=T) == 0)) {
+        singular <- T
+        break
+      }
+      
+      if (verbose) {
+        cat("Log likelihood: ", fit$logl, "\n")
+      }
+      if (fit$logl - previous_logl < epsilon) {
+        return(fit)
+      } else {
+        previous_logl <- fit$logl
+      }
+      
+      fit <- .mixture_maximization_step(x, fit)
     }
     
     if (!singular) {
@@ -150,8 +184,20 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, v
 #' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
-    fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-    return(structure(result, class = "mvd.density"))
+  fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+  
+  result <- list()
+  result$type <- "gmm.truncated"
+  result$K <- K
+  result$centers <- fit$centers
+  result$covariances <- fit$covariances
+  result$proportions <- fit$component_weights
+  result$bounds <- bounds
+  result$log_likelihood <- fit$logl
+  nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
+  result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
+  result$assignment <- apply(fit$weights, 1, which.max)
+  return(structure(result, class = "mvd.density"))
 }
 
 #' Calculate BIC of a Gaussian mixture across a range of number of components.

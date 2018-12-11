@@ -4,8 +4,8 @@
 \alias{fit.kde}
 \title{Fit a kernel density estimate}
 \usage{
-fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = TRUE, verbose = FALSE,
-  ...)
+fit.kde(x, adjust = 1, bw.fn = bw.SJ, diagonal = TRUE,
+  verbose = FALSE, ...)
 }
 \arguments{
 \item{x}{Matrix or vector of samples. For matrices, rows are samples and columns are variables.}

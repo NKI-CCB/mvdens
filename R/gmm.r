@@ -140,7 +140,7 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     warning("More parameters than samples, consider lowering K")
   }
   
-  fit <- .fit.gmm.internal(x, K, truncated = F, bounds = NA, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+  fit <- .fit.gmm.internal(x, K, truncated = F, bounds = NA, min_cov = NULL, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
   
   result <- list()
   result$type <- "gmm"

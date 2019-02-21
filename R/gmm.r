@@ -39,14 +39,23 @@
   return(result)
 }
 
-.mixture_expectation_step <- function(x, fit, truncated=T) {
+.mixture_expectation_step <- function(x, fit, truncated=T, tdist=F, tdistdf=3) {
   log_l <- matrix(NA, nrow(x), fit$k)
   for (ki in 1:fit$k) {
-    if (truncated) {
-      log_l[, ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]],
-                              lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = T) + log(fit$component_weights[ki])
+    if (tdist) {
+      if (truncated) {
+        log_l[, ki] <- tmvtnorm::dtmvt(x, fit$centers[ki,], fit$covariances[[ki]], tdistdf,
+                                          lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = T) + log(fit$component_weights[ki])
+      } else {
+        log_l[, ki] <- mvtnorm::dmvt(x, fit$centers[ki,], fit$covariances[[ki]], tdistdf, log = T) + log(fit$component_weights[ki])
+      }
     } else {
-      log_l[, ki] <- mvtnorm::dmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = T) + log(fit$component_weights[ki])
+      if (truncated) {
+        log_l[, ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]],
+                                lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = T) + log(fit$component_weights[ki])
+      } else {
+        log_l[, ki] <- mvtnorm::dmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = T) + log(fit$component_weights[ki])
+      }
     }
   }
   fit$logl <- sum(apply(log_l, 1, .logsum))
@@ -72,7 +81,7 @@
   return(fit)
 }
 
-.fit.gmm.internal <- function(x, K, truncated, bounds, min_cov, epsilon, maxsteps, verbose) {
+.fit.gmm.internal <- function(x, K, truncated, bounds, min_cov, epsilon, maxsteps, verbose, tdist, tdistdf = NA) {
   singular <- F
   for (j in 1:10) {
     fit <- .assign_kmeanspp(x, K)
@@ -84,7 +93,7 @@
     previous_logl <- -Inf
     singular <- F
     for (i in 1:maxsteps) {
-      return_value <- try(fit <- .mixture_expectation_step(x, fit, truncated), silent = !verbose)
+      return_value <- try(fit <- .mixture_expectation_step(x, fit, truncated, tdist, tdistdf), silent = !verbose)
       if (inherits(return_value, "try-error")) {
         singular <- T
         break
@@ -140,7 +149,7 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     warning("More parameters than samples, consider lowering K")
   }
   
-  fit <- .fit.gmm.internal(x, K, truncated = F, bounds = NA, min_cov = NULL, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+  fit <- .fit.gmm.internal(x, K, truncated = F, bounds = NA, min_cov = NULL, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose, tdist = F)
   
   result <- list()
   result$type <- "gmm"
@@ -184,7 +193,35 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, v
 #' @param verbose Display the fitting progress by showing the likelihood at every iteration.
 #' @export
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
-  fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+  fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose, tdist = F)
+  
+  result <- list()
+  result$type <- "gmm.truncated"
+  result$K <- K
+  result$centers <- fit$centers
+  result$covariances <- fit$covariances
+  result$proportions <- fit$component_weights
+  result$bounds <- bounds
+  result$log_likelihood <- fit$logl
+  nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
+  result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
+  result$assignment <- apply(fit$weights, 1, which.max)
+  return(structure(result, class = "mvd.density"))
+}
+
+#' Fit a truncated t-distribution mixture with a specific number of components.
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param K Integer specifying the number of components of the mixture.
+#' @param df Degrees of freedom of the t-distrubtions.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param epsilon For the EM algorithm, stop when the difference in log likelihood is less than this epsilon.
+#' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned and a warning will be issued.
+#' @param verbose Display the fitting progress by showing the likelihood at every iteration.
+#' @export
+fit.tmixture.truncated <- function(x, K, df = 3, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+  fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose, tdist = T, tdistdf = df)
   
   result <- list()
   result$type <- "gmm.truncated"

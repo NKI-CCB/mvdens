@@ -59,6 +59,9 @@
 .train.vc.mixture <- function(x.train, p.train, log, fit.params) {
   do.call(fit.vine.copula, c(list(x = x.train, marginalfn = fit.marginal.mixture), fit.params))
 }
+.train.factor.mixture <- function(x.train, p.train, log, fit.params) {
+  do.call(factor.mixture.AIC, c(list(x = x.train), optimal.only = T, fit.params))
+}
 
 #' Estimate the approximation accuracy of a multivariate density using cross validation
 #'
@@ -114,6 +117,8 @@ mvd.cv <- function(x, p, log, type, cvtype, nfolds = 10, mcsize = nrow(x) / 10, 
     train.function <- .train.vc.parametric
   } else if (type == "vc.mixture") {
     train.function <- .train.vc.mixture
+  } else if (type == "fma") {
+    train.function <- .train.factor.mixture
   }
   `%dopar%` <- foreach::`%dopar%`
   

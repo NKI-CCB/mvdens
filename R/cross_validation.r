@@ -60,7 +60,7 @@
   do.call(fit.vine.copula, c(list(x = x.train, marginalfn = fit.marginal.mixture), fit.params))
 }
 .train.factor.mixture <- function(x.train, p.train, log, fit.params) {
-  do.call(factor.mixture.AIC, c(list(x = x.train), optimal.only = T, fit.params))
+  do.call(factor.mixture.AIC, c(list(x = x.train, optimal.only = T), fit.params))
 }
 
 #' Estimate the approximation accuracy of a multivariate density using cross validation

@@ -11,6 +11,12 @@
 #' @export
 fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, maxsteps = 100)
 {
+  nparam <- num_components * num_factors * (num_factors + 1) + ncol(x) * (ncol(x) + 1) + num_components - 1
+  if (nparam >= nrow(x)) {
+    warning("More parameters than samples, lower the number of factors or components")
+    return(NULL);
+  }
+  
   t <- as.numeric(Sys.time())
   seed <- 1e8 * (t - floor(t))
   
@@ -19,13 +25,28 @@ fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, m
   result$fma_res <- FactMixtAnalysis::fma(x, num_components, num_factors, eps=epsilon, it=maxsteps, seed=seed)
   result$num_components <- num_components
   result$num_factors <- num_factors
+  result$weights <- result$fma_res$w[,1] # Not sure why this is a matrix of weights? all columns appear to be identical
   result$factor_loading <- result$fma_res$H
-  result$means <- result$fma_res$Beta[,,1]
+  result$factor_means <- result$fma_res$Beta[,,1]
   result$factor_covariances <- result$fma_res$sigma
   result$variable_mean <- apply(x, 2, mean)
   result$variable_covariance <- result$fma_res$psi
   result$log_likelihood <- tail(result$fma_res$lik, n=1)
   result$AIC <- result$fma_res$aic
+  
+  # Make covariance matrices symmetric (numerical issue?)
+  if (result$num_factors > 1) {
+    for (i in 1:result$num_components) {
+      for (j in 1:(result$num_factors-1)) {
+        for (k in (j+1):result$num_factors) {
+          cov <- mean(result$factor_covariances[i,j,k], result$factor_covariances[i,j,k])
+          result$factor_covariances[i,j,k] <- cov
+          result$factor_covariances[i,k,j] <- cov
+        }
+      }
+    }
+  }
+  
   return(structure(result, class = "mvd.density"))
 }
 
@@ -55,8 +76,11 @@ factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only 
       }
       
       if (factors[i] < ncol(x)/2) {
-        result$fits[[i]][[j]] <- fit.factor.mixture(x, factors[i], components[j], epsilon = epsilon, maxsteps = maxsteps)
-        result$AIC[i,j] <- result$fits[[i]][[j]]$AIC
+        fit <- fit.factor.mixture(x, factors[i], components[j], epsilon = epsilon, maxsteps = maxsteps)
+        if(!is.null(fit)) {
+          result$fits[[i]][[j]] <- fit
+          result$AIC[i,j] <- fit$AIC
+        }
       } else {
         result$fits[[i]][[j]] <- NULL
         result$AIC[i,j] <- NA
@@ -80,15 +104,27 @@ factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only 
 #' @param log Return log probability density
 #' @export
 evaluate.factor.mixture <- function(fit, x, log = F) {
+  ty <- scale(x, fit$variable_mean, FALSE)
+  tz <- t(solve(t(fit$factor_loading) %*% solve(fit$variable_covariance) %*% fit$factor_loading) %*% t(fit$factor_loading) %*% solve(fit$variable_covariance) %*% t(ty))
   
-  
-  p_vc <- VineCopula::RVineLogLik(transformed, fit$RVM, separate = T)$loglik
-  if (!is.null(fit$marginal)) {
-    p <- .marginal.correct.p(fit$marginal, x, p_vc, log = T)
+  p <- rep(NA, nrow(x))
+  for (i in 1:nrow(x)) {
+    compp <- rep(NA, fit$num_components)
+    if (fit$num_factors == 1) {
+      for (j in 1:fit$num_components) {
+        compp[j] <- fit$weights[j] * dnorm(tz[i,], fit$factor_means[j], fit$factor_covariances[j,,], log=log)
+      }
+    } else {
+      for (j in 1:fit$num_components) {
+        compp[j] <- fit$weights[j] * mvtnorm::dmvnorm(t(tz[i,]), fit$factor_means[j,], fit$factor_covariances[j,,], log=log)
+      }
+    }
+    p[i] <- mvtnorm::dmvnorm(t(x[i,]), fit$factor_loading %*% tz[i,] + fit$variable_mean, fit$variable_covariance, log=log)
+    if (log) {
+      p[i] <- p[i] + .logsum(compp)
+    } else {
+      p[i] <- p[i] * sum(compp)
+    }
   }
-  if (log) {
-    return(p)
-  } else {
-    return(exp(p))
-  }
+  return(p)
 }

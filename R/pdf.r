@@ -94,7 +94,7 @@ mvd.pdf <- function(fit, x, log = FALSE) {
         return(evaluate.gp(fit, x))
     } else if (fit$type == "vine.copula") {
         return(evaluate.vine.copula(fit, x, log))
-    } else if (fit$type == "fma") {
+    } else if (fit$type == "mfa") {
       return(evaluate.factor.mixture(fit, x, log))
     } else {
         stop("Unknown type")

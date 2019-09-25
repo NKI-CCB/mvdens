@@ -117,7 +117,7 @@ mvd.cv <- function(x, p, log, type, cvtype, nfolds = 10, mcsize = nrow(x) / 10, 
     train.function <- .train.vc.parametric
   } else if (type == "vc.mixture") {
     train.function <- .train.vc.mixture
-  } else if (type == "fma") {
+  } else if (type == "mfa") {
     train.function <- .train.factor.mixture
   }
   `%dopar%` <- foreach::`%dopar%`

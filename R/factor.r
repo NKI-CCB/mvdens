@@ -1,5 +1,3 @@
-
-
 #' Fit a mixture of factor analyzers with a specific number of components.
 #'
 #' description
@@ -9,43 +7,47 @@
 #' @param epsilon For the EM algorithm, stop when the relative difference in log likelihood is less than this epsilon.
 #' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned.
 #' @export
-fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, maxsteps = 100)
+fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, maxsteps = 100, verbose = F)
 {
-  nparam <- num_components * num_factors * (num_factors + 1) + ncol(x) * (ncol(x) + 1) + num_components - 1
+  nvar <- ncol(x)
+  nparam <- num_components * nvar + nvar + num_components * (num_factors * nvar - num_factors * (num_factors - 1) / 2) + num_components - 1
   if (nparam >= nrow(x)) {
-    warning("More parameters than samples, lower the number of factors or components")
-    return(NULL);
+    warning("More parameters than samples, consider lowering the number of factors or components")
   }
-  
-  t <- as.numeric(Sys.time())
-  seed <- 1e8 * (t - floor(t))
   
   result <- list()
-  result$type <- "fma"
-  result$fma_res <- FactMixtAnalysis::fma(x, num_components, num_factors, eps=epsilon, it=maxsteps, seed=seed)
+  result$type <- "mfa"
+  if (verbose) {
+    result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique")
+  } else {
+    output <- capture.output(result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique"))
+  }
   result$num_components <- num_components
   result$num_factors <- num_factors
-  result$weights <- result$fma_res$w[,1] # Not sure why this is a matrix of weights? all columns appear to be identical
-  result$factor_loading <- result$fma_res$H
-  result$factor_means <- result$fma_res$Beta[,,1]
-  result$factor_covariances <- result$fma_res$sigma
-  result$variable_mean <- apply(x, 2, mean)
-  result$variable_covariance <- result$fma_res$psi
-  result$log_likelihood <- tail(result$fma_res$lik, n=1)
-  result$AIC <- result$fma_res$aic
+  result$weights <- result$mfa_res$pivec
+  result$factor_loadings <- result$mfa_res$B
+  result$factor_means <- result$mfa_res$mu
+  result$covariances <- result$mfa_res$D
+  result$log_likelihood <- result$mfa_res$logL
+  result$BtBpD <- list()
+  for (i in 1:num_components) {
+    result$BtBpD[[i]] <- result$mfa_res$B[,,i] %*% t(result$mfa_res$B[,,i]) + result$mfa_res$D[,,i]
+  }
+  result$AIC <- 2 * nparam - 2 * result$log_likelihood
+  result$BIC <- log(nrow(x)) * nparam - 2 * result$log_likelihood
   
   # Make covariance matrices symmetric (numerical issue?)
-  if (result$num_factors > 1) {
-    for (i in 1:result$num_components) {
-      for (j in 1:(result$num_factors-1)) {
-        for (k in (j+1):result$num_factors) {
-          cov <- mean(result$factor_covariances[i,j,k], result$factor_covariances[i,j,k])
-          result$factor_covariances[i,j,k] <- cov
-          result$factor_covariances[i,k,j] <- cov
-        }
-      }
-    }
-  }
+  # if (result$num_factors > 1) {
+  #   for (i in 1:result$num_components) {
+  #     for (j in 1:(result$num_factors-1)) {
+  #       for (k in (j+1):result$num_factors) {
+  #         cov <- mean(result$factor_covariances[i,j,k], result$factor_covariances[i,j,k])
+  #         result$factor_covariances[i,j,k] <- cov
+  #         result$factor_covariances[i,k,j] <- cov
+  #       }
+  #     }
+  #   }
+  # }
   
   return(structure(result, class = "mvd.density"))
 }
@@ -75,7 +77,7 @@ factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only 
         cat("Fitting factors =", factors[i], " components =", components[j], "\n")
       }
       
-      if (factors[i] < ncol(x)/2) {
+      if (factors[i] < ncol(x)) {
         fit <- fit.factor.mixture(x, factors[i], components[j], epsilon = epsilon, maxsteps = maxsteps)
         if(!is.null(fit)) {
           result$fits[[i]][[j]] <- fit
@@ -104,26 +106,16 @@ factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only 
 #' @param log Return log probability density
 #' @export
 evaluate.factor.mixture <- function(fit, x, log = F) {
-  ty <- scale(x, fit$variable_mean, FALSE)
-  tz <- t(solve(t(fit$factor_loading) %*% solve(fit$variable_covariance) %*% fit$factor_loading) %*% t(fit$factor_loading) %*% solve(fit$variable_covariance) %*% t(ty))
-  
   p <- rep(NA, nrow(x))
   for (i in 1:nrow(x)) {
     compp <- rep(NA, fit$num_components)
-    if (fit$num_factors == 1) {
-      for (j in 1:fit$num_components) {
-        compp[j] <- fit$weights[j] * dnorm(tz[i,], fit$factor_means[j], fit$factor_covariances[j,,], log=log)
-      }
-    } else {
-      for (j in 1:fit$num_components) {
-        compp[j] <- fit$weights[j] * mvtnorm::dmvnorm(t(tz[i,]), fit$factor_means[j,], fit$factor_covariances[j,,], log=log)
-      }
+    for (j in 1:fit$num_components) {
+      compp[j] <- mvtnorm::dmvnorm(x[i,], fit$factor_means[,j], fit$BtBpD[[j]], log=log)
     }
-    p[i] <- mvtnorm::dmvnorm(t(x[i,]), fit$factor_loading %*% tz[i,] + fit$variable_mean, fit$variable_covariance, log=log)
     if (log) {
-      p[i] <- p[i] + .logsum(compp)
+      p[i] <- .logsum(compp + log(fit$weights))
     } else {
-      p[i] <- p[i] * sum(compp)
+      p[i] <- sum(compp * fit$weights)
     }
   }
   return(p)

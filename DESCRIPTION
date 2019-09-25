@@ -6,6 +6,6 @@ Author: Bram Thijssen
 Maintainer: Bram Thijssen <b.thijssen@nki.nl>
 Description: Interface for fitting multivariate density functions, including kernel density estimates, Gaussian mixtures, vine copulas and Gaussian processes. The package is tailored for estimating densities from Monte Carlo sampling output, but can be applied to other multivariate density estimation contexts as well.
 Suggests: parallel,doParallel,foreach,XML
-Depends: mixtools,mvtnorm,tmvtnorm,ks,VineCopula,nloptr,betareg,MASS,methods,fma
+Depends: mixtools,mvtnorm,tmvtnorm,ks,VineCopula,nloptr,betareg,MASS,methods,EMMIXmfa
 License: GPL-2
 RoxygenNote: 6.1.1

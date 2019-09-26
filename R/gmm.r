@@ -158,6 +158,7 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   result$covariances <- fit$covariances
   result$proportions <- fit$component_weights
   result$log_likelihood <- fit$logl
+  result$AIC <- 2 * nparam - 2 * fit$logl
   result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
   result$assignment <- apply(fit$weights, 1, which.max)
   return(structure(result, class = "mvd.density"))
@@ -204,6 +205,7 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
   result$bounds <- bounds
   result$log_likelihood <- fit$logl
   nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
+  result$AIC <- 2 * nparam - 2 * fit$logl
   result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
   result$assignment <- apply(fit$weights, 1, which.max)
   return(structure(result, class = "mvd.density"))
@@ -232,12 +234,13 @@ fit.tmixture.truncated <- function(x, K, df = 3, bounds = cbind(rep(-Inf, ncol(x
   result$bounds <- bounds
   result$log_likelihood <- fit$logl
   nparam <- K * ncol(x) * (ncol(x) + 1) / 2 + K
+  result$AIC <- 2 * nparam - 2 * fit$logl
   result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
   result$assignment <- apply(fit$weights, 1, which.max)
   return(structure(result, class = "mvd.density"))
 }
 
-#' Calculate BIC of a Gaussian mixture across a range of number of components.
+#' Calculate AIC of a Gaussian mixture across a range of number of components.
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -247,10 +250,10 @@ fit.tmixture.truncated <- function(x, K, df = 3, bounds = cbind(rep(-Inf, ncol(x
 #' @param maxsteps See fit.gmm
 #' @param verbose Display the fitting progress.
 #' @export
-gmm.BIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.AIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   result <- list()
   result$K <- K
-  result$BIC <- rep(NA, length(K))
+  result$AIC <- rep(NA, length(K))
   result$fits <- list()
   for (k in 1:length(K)) {
     if (verbose) {
@@ -260,21 +263,21 @@ gmm.BIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 100
     nparam <- K[k] * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K[k] - 1
     if (k > 1 && nparam >= nrow(x)) {
       result$fits[[k]] <- NULL
-      result$BIC[k] <- NA
+      result$AIC[k] <- NA
     } else {
       result$fits[[k]] <- fit.gmm(x, K[k], epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-      result$BIC[k] <- result$fits[[k]]$BIC
+      result$AIC[k] <- result$fits[[k]]$AIC
     }
   }
   if (optimal.only) {
-    ix <- which.min(result$BIC)
+    ix <- which.min(result$AIC)
     return(result$fits[[ix]])
   } else {
     return(result)
   }
 }
 
-#' Calculate BIC of a transformed Gaussian mixture across a range of number of components.
+#' Calculate AIC of a transformed Gaussian mixture across a range of number of components.
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -285,10 +288,10 @@ gmm.BIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 100
 #' @param maxsteps See fit.gmm.transformed
 #' @param verbose Display the fitting progress.
 #' @export
-gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.transformed.AIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   result <- list()
   result$K <- K
-  result$BIC <- rep(NA, length(K))
+  result$AIC <- rep(NA, length(K))
   result$fits <- list()
   for (k in 1:length(K)) {
     if (verbose) {
@@ -297,21 +300,21 @@ gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 
     nparam <- K[k] * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K[k] - 1
         if (k > 1 && nparam >= nrow(x)) {
             result$fits[[k]] <- NULL
-            result$BIC[k] <- NA
+            result$AIC[k] <- NA
         } else {
             result$fits[[k]] <- fit.gmm.transformed(x, K[k], bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-            result$BIC[k] <- result$fits[[k]]$gmm$BIC
+            result$AIC[k] <- result$fits[[k]]$gmm$AIC
         }
     }
     if (optimal.only) {
-        ix <- which.min(result$BIC)
+        ix <- which.min(result$AIC)
         return(result$fits[[ix]])
     } else {
         return(result)
     }
 }
 
-#' Calculate BIC of a truncated Gaussian mixture across a range of number of components
+#' Calculate AIC of a truncated Gaussian mixture across a range of number of components
 #'
 #' description
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
@@ -322,10 +325,10 @@ gmm.transformed.BIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 
 #' @param maxsteps See fit.gmm.truncated
 #' @param verbose Display the fitting progress.
 #' @export
-gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
+gmm.truncated.AIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
     result$K <- K
-    result$BIC <- rep(NA, length(K))
+    result$AIC <- rep(NA, length(K))
     result$fits <- list()
     for (k in 1:length(K)) {
         if (verbose) {
@@ -334,14 +337,14 @@ gmm.truncated.BIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep
         nparam <- K[k] * (ncol(x) + ncol(x) * (ncol(x) + 1) / 2) + K[k] - 1
         if (k > 1 && nparam >= nrow(x)) {
             result$fits[[k]] <- NULL
-            result$BIC[k] <- NA
+            result$AIC[k] <- NA
         } else {
             result$fits[[k]] <- fit.gmm.truncated(x, K[k], bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-            result$BIC[k] <- result$fits[[k]]$BIC
+            result$AIC[k] <- result$fits[[k]]$AIC
         }
     }
     if (optimal.only) {
-        ix <- which.min(result$BIC)
+        ix <- which.min(result$AIC)
         return(result$fits[[ix]])
     } else {
         return(result)

@@ -30,19 +30,19 @@
     do.call(fit.gmm, c(list(x = x.train, K = 1), fit.params))
 }
 .train.gmm <- function(x.train, p.train, log, fit.params) {
-    bic <- do.call(gmm.BIC, c(list(x = x.train), fit.params))
-    best <- which.min(bic$BIC)
-    return(bic$fits[[best]])
+    aic <- do.call(gmm.AIC, c(list(x = x.train), fit.params))
+    best <- which.min(aic$AIC)
+    return(aic$fits[[best]])
 }
 .train.gmm.transformed <- function(x.train, p.train, log, fit.params) {
-    bic <- do.call(gmm.transformed.BIC, c(list(x = x.train), fit.params))
-    best <- which.min(bic$BIC)
-    return(bic$fits[[best]])
+    aic <- do.call(gmm.transformed.AIC, c(list(x = x.train), fit.params))
+    best <- which.min(aic$AIC)
+    return(aic$fits[[best]])
 }
 .train.gmm.truncated <- function(x.train, p.train, log, fit.params) {
-    bic <- do.call(gmm.truncated.BIC, c(list(x = x.train), fit.params))
-    best <- which.min(bic$BIC)
-    return(bic$fits[[best]])
+    aic <- do.call(gmm.truncated.AIC, c(list(x = x.train), fit.params))
+    best <- which.min(aic$AIC)
+    return(aic$fits[[best]])
 }
 .train.gp <- function(x.train, p.train, log, fit.params) {
   do.call(fit.gp, c(list(x = x.train, p = p.train), fit.params))

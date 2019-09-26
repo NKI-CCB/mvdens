@@ -228,6 +228,6 @@ evaluate.gp <- function(fit, x) {
     } else {
         kxsx <- fit$kernel(x, fit$x, fit$l)
         f <- kxsx %*% fit$alpha
-        return(fit$s * f)
+        return(abs(fit$s) * f)
     }
 }

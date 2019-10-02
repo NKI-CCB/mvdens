@@ -91,7 +91,7 @@ mvd.pdf <- function(fit, x, log = FALSE) {
             }
         }
     } else if (fit$type == "gp") {
-        return(evaluate.gp(fit, x))
+        return(evaluate.gp(fit, x, log))
     } else if (fit$type == "vine.copula") {
         return(evaluate.vine.copula(fit, x, log))
     } else if (fit$type == "mfa") {

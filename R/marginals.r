@@ -128,7 +128,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
 
             d <- data.frame(y = x[, i])
             cf <- coef(lm(qlogis(y) ~ 1, data = d))
-            m <- betareg::betamix(y ~ 1 | 1, data = d, k = 1:3, control = betareg::betareg.control(start = list(mean = 0, precision = 1)), FLXcontrol = list(tolerance = 0.01))
+            m <- betareg::betamix(y ~ 1 | 1, data = d, k = 1:3, control = betareg::betareg.control(start = list(mean = 0, precision = 1)), FLXcontrol = list(tolerance = 0.01), which = "AIC")
             k <- m$flexmix@k
             if (k == 1) {
                 mu <- plogis(coef(m)[1])
@@ -149,12 +149,12 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             rescale <- 1 / mean(x[, i])
             rescaled <- x[, i] * rescale
             ms <- list()
-            BIC <- rep(NA, 3)
+            AIC <- rep(NA, 3)
             for (k in 1:3) {
                 ms[[k]] <- mixtools::gammamixEM(rescaled, k = k, epsilon = 0.01)
-                BIC[k] <- log(nrow(x)) * 2 * k - 2 * ms[[k]]$loglik
+                AIC[k] <- 2 * k - 2 * ms[[k]]$loglik
             }
-            k <- which.min(BIC)
+            k <- which.min(AIC)
             m <- ms[[k]]
 
             marginal$dists[[i]]$p <- m$lambda
@@ -166,21 +166,21 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             marginal$dists[[i]]$type <- "normal"
 
             ms <- list()
-            BIC <- rep(NA, 3)
+            AIC <- rep(NA, 3)
             ms[[1]] <- list()
             ms[[1]]$lambda <- 1
             ms[[1]]$mu <- mean(x[, i])
             ms[[1]]$sigma <- sd(x[, i])
-            BIC[1] <- log(nrow(x)) * 2 - 2 * sum(dnorm(x[, i], ms[[1]]$mu, ms[[1]]$sigma, log = T))
+            AIC[1] <- log(nrow(x)) * 2 - 2 * sum(dnorm(x[, i], ms[[1]]$mu, ms[[1]]$sigma, log = T))
             for (k in 2:3) {
                 capture.output(return_value <- try(ms[[k]] <- mixtools::normalmixEM(x[, i], k = k, epsilon = 0.01, arbmean = T, arbvar = T)))
                 if (inherits(return_value, "try-error")) {
-                    BIC[k] <- NA
+                    AIC[k] <- NA
                 } else {
-                    BIC[k] <- log(nrow(x)) * 2 * k - 2 * ms[[k]]$loglik
+                    AIC[k] <- 2 * k - 2 * ms[[k]]$loglik
                 }
             }
-            k <- which.min(BIC)
+            k <- which.min(AIC)
             m <- ms[[k]]
 
             marginal$dists[[i]]$p <- m$lambda
@@ -196,7 +196,7 @@ fit.marginal.mixture <- function(x, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
             marginal$dists[[i]]$max <- b
 
             d <- data.frame(y = (x[, i] - a) / (b - a))
-            m <- betareg::betamix(y ~ 1, data = d, k = 1:3, FLXcontrol = list(tolerance = 0.01))
+            m <- betareg::betamix(y ~ 1, data = d, k = 1:3, FLXcontrol = list(tolerance = 0.01), which = "AIC")
             
             k <- m$flexmix@k
             if (k == 1) {

@@ -221,13 +221,32 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
 #' @param fit mvd.density object
 #' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
 #' @export
-evaluate.gp <- function(fit, x) {
+evaluate.gp <- function(fit, x, log) {
     stopifnot(fit$type == "gp")
 
+  if (log) {
     if (fit$log) {
+      kxsx <- fit$kernel(x, fit$x, fit$l)
+      f <- kxsx %*% fit$alpha
+      return(fit$s * f)
     } else {
-        kxsx <- fit$kernel(x, fit$x, fit$l)
-        f <- kxsx %*% fit$alpha
-        return(abs(fit$s) * f)
+      kxsx <- fit$kernel(x, fit$x, fit$l)
+      f <- kxsx %*% fit$alpha
+      p <- abs(fit$s) * f
+      p[p < 0] <- 0
+      return(log(p))
     }
+  } else {
+    if (fit$log) {
+      kxsx <- fit$kernel(x, fit$x, fit$l)
+      f <- kxsx %*% fit$alpha
+      return(exp(fit$s * f))
+    } else {
+      kxsx <- fit$kernel(x, fit$x, fit$l)
+      f <- kxsx %*% fit$alpha
+      p <- abs(fit$s) * f
+      p[p < 0] <- 0
+      return(p)
+    }
+  }
 }

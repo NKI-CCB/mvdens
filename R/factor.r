@@ -18,9 +18,13 @@ fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, m
   result <- list()
   result$type <- "mfa"
   if (verbose) {
-    result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique")
+    try(result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique"))
   } else {
     output <- capture.output(result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique"))
+  }
+  if (class(result$mfa_res)[1] != "emmix" || class(result$mfa_res)[2] != "mfa") {
+    warning("Failed to fit MFA")
+    return(NULL)
   }
   result$num_components <- num_components
   result$num_factors <- num_factors

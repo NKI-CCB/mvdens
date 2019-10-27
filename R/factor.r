@@ -28,6 +28,10 @@ fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-6, m
                                                                             itmax=maxsteps, sigma_type = "unique", D_type = "unique",
                                                                             nrandom=5, nkmeans=5, conv_measure="ratio"), type="message"), type="output")
   }
+  if (class(result$mfa_res)[1] != "emmix" || class(result$mfa_res)[2] != "mfa") {
+    warning("Failed to fit MFA")
+    return(NULL)
+  }
   if (sum(class(result$mfa_res) == c("emmix", "mfa")) != 2) {
     warning("Factor mixture fitting failed")
     return(NULL)

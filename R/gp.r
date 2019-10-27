@@ -101,6 +101,7 @@
   for (fi in 1:nfolds) {
     foldsize <- n / nfolds
     test_ix <- (fi - 1) * foldsize + 1:foldsize
+    #test_ix <- sample(n, foldsize)
     train_ix <- setdiff(1:n, test_ix)
     
     if (is.matrix(result$x)) {
@@ -124,12 +125,13 @@
     ktest <- result$kernel(xtest, xtrain, l)
     
     integral <- result$kernel.integral(alpha, l, D)
-    f <- (ktest %*% alpha)
+    f <- abs(integral) * (ktest %*% alpha)
+    f[f < 0] <- 0
     diff <- result$p[test_ix] - f
     sse[fi] <- sum(diff ^ 2)
     if (integral < 0) {
       # Heavily penalize negative integrals
-      sse[fi] <- sse[fi] * 1e10
+      #sse[fi] <- sse[fi] * 1e10
     }
     
   }
@@ -180,17 +182,19 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
     result$log <- FALSE
 
     if (optimize) {
-          stopifnot(length(l) > 1)
-          if (length(sigman) > 1) { 
-              options <- nloptr::nl.opts(list(ftol_rel = 1e-6))
-              opt <- nloptr::sbplx(c(mean(l), mean(sigman)), .gp.cv.optimize2, c(l[1], sigman[1]), c(l[2], sigman[2]), result = result, verbose = verbose, control=options)
-              result$l <- opt$par[1]
-              result$sigman <- opt$par[2]
-          } else {
-              result$sigman <- sigman
-              opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
-              result$l <- opt$minimum
-          }
+      stopifnot(length(l) > 1)
+      options <- nloptr::nl.opts(list(ftol_rel = 1e-6))
+      if (length(sigman) > 1) { 
+          opt <- nloptr::sbplx(c(mean(l), mean(sigman)), .gp.cv.optimize2, c(l[1], sigman[1]), c(l[2], sigman[2]), result = result, verbose = verbose, control=options)
+          result$l <- opt$par[1]
+          result$sigman <- opt$par[2]
+      } else {
+          result$sigman <- sigman
+          # opt <- optimize(.gp.cv.optimize, l, result = result, verbose = verbose)
+          # result$l <- opt$minimum
+          opt <- nloptr::sbplx(mean(l), .gp.cv.optimize, l[1], l[2], result = result, verbose = verbose, control=options)
+          result$l <- opt$par[1]
+      }
     } else {
         result$l <- l
         result$sigman <- sigman

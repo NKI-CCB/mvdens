@@ -7,21 +7,32 @@
 #' @param epsilon For the EM algorithm, stop when the relative difference in log likelihood is less than this epsilon.
 #' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned.
 #' @export
-fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, maxsteps = 100, verbose = F)
+fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-6, maxsteps = 1000, verbose = F)
 {
   nvar <- ncol(x)
   nparam <- num_components * nvar + nvar + num_components * (num_factors * nvar - num_factors * (num_factors - 1) / 2) + num_components - 1
   if (nparam >= nrow(x)) {
     warning("More parameters than samples, consider lowering the number of factors or components")
+    return(NULL)
   }
   
   result <- list()
   result$type <- "mfa"
+  result$mfa_res <- NULL
   if (verbose) {
-    result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique")
+    try(result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon,
+                                        itmax=maxsteps, sigma_type = "unique", D_type = "unique",
+                                        nrandom=5, nkmeans=5, conv_measure="ratio"), silent=F)
   } else {
-    output <- capture.output(result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon, itmax=maxsteps, sigma_type = "unique", D_type = "unique"))
+    output <- capture.output(capture.output(result$mfa_res <- EMMIXmfa::mfa(x, num_components, num_factors, tol=epsilon,
+                                                                            itmax=maxsteps, sigma_type = "unique", D_type = "unique",
+                                                                            nrandom=5, nkmeans=5, conv_measure="ratio"), type="message"), type="output")
   }
+  if (sum(class(result$mfa_res) == c("emmix", "mfa")) != 2) {
+    warning("Factor mixture fitting failed")
+    return(NULL)
+  }
+  
   result$num_components <- num_components
   result$num_factors <- num_factors
   result$weights <- result$mfa_res$pivec
@@ -63,7 +74,7 @@ fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-5, m
 #' @param maxsteps See fit.factor.mixture
 #' @param verbose Display the fitting progress.
 #' @export
-factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only = F, epsilon = 1e-5, maxsteps = 100, verbose = F) {
+factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only = F, epsilon = 1e-6, maxsteps = 1000, verbose = F) {
   result <- list()
   result$factors <- factors
   result$components <- components
@@ -78,14 +89,13 @@ factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only 
       }
       
       if (factors[i] < ncol(x)) {
-        fit <- fit.factor.mixture(x, factors[i], components[j], epsilon = epsilon, maxsteps = maxsteps)
+        fit <- fit.factor.mixture(x, factors[i], components[j], epsilon = epsilon, maxsteps = maxsteps, verbose=verbose)
+        result$fits[[i]][[j]] <- fit
         if(!is.null(fit)) {
-          result$fits[[i]][[j]] <- fit
           result$AIC[i,j] <- fit$AIC
         }
       } else {
         result$fits[[i]][[j]] <- NULL
-        result$AIC[i,j] <- NA
       }
     }
   }

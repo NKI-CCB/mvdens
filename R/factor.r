@@ -67,6 +67,26 @@ fit.factor.mixture <- function(x, num_factors, num_components, epsilon = 1e-6, m
   return(structure(result, class = "mvd.density"))
 }
 
+#' Fit a transformed mixture of factor analyzers with a specific number of components.
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param num_factors Number of factors in the factor analyzers.
+#' @param num_components Integer specifying the number of components.
+#' @param bounds Dx2 matrix specifying the lower and upper bound for each variable.
+#' @param epsilon For the EM algorithm, stop when the relative difference in log likelihood is less than this epsilon.
+#' @param maxsteps Maximum number of steps to take in the EM algorithm. When the maximum number is reached, the current fit will be returned.
+#' @export
+fit.transformed.factor.mixture <- function(x, num_factors, num_components, bounds, epsilon = 1e-6, maxsteps = 1000, verbose = F)
+{
+  result <- list()
+  result$type <- "mfa.transformed"
+  result$transform.bounds <- bounds
+  transformed <- mvd.transform_to_unbounded(x, bounds)
+  result$mfa <- fit.factor.mixture(transformed, num_factors, num_components, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+  return(structure(result, class = "mvd.density"))
+}
+
 #' Calculate AIC of a mixture of factor analyzers across a range of number of components and factors.
 #'
 #' description
@@ -97,6 +117,51 @@ factor.mixture.AIC <- function(x, factors = 1:5, components = 1:5, optimal.only 
         result$fits[[i]][[j]] <- fit
         if(!is.null(fit)) {
           result$AIC[i,j] <- fit$AIC
+        }
+      } else {
+        result$fits[[i]][[j]] <- NULL
+      }
+    }
+  }
+  if (optimal.only) {
+    ixs <- which(result$AIC == min(result$AIC, na.rm=T), arr.ind = T)
+    return(result$fits[[ixs[1]]][[ixs[2]]])
+  } else {
+    return(result)
+  }
+}
+
+
+#' Calculate AIC of a transformed mixture of factor analyzers across a range of number of components and factors.
+#'
+#' description
+#' @param x Matrix or vector of samples. For matrices, rows are samples and columns are variables.
+#' @param factors Vector specifying the number of factors to test
+#' @param components Vector specifying the number of components to test
+#' @param optimal.only If TRUE, directly return only the GMM with optimal number of components; otherwise return a structure with fits for all tested number of components/factors.
+#' @param epsilon See fit.factor.mixture
+#' @param maxsteps See fit.factor.mixture
+#' @param verbose Display the fitting progress.
+#' @export
+transformed.factor.mixture.AIC <- function(x, bounds, factors = 1:5, components = 1:5, optimal.only = F, epsilon = 1e-6, maxsteps = 1000, verbose = F) {
+  result <- list()
+  result$factors <- factors
+  result$components <- components
+  result$AIC <- matrix(NA, length(factors), length(components))
+  result$fits <- list()
+  for (i in 1:length(factors)) {
+    result$fits[[i]] <- list()
+    
+    for (j in 1:length(components)) {
+      if (verbose) {
+        cat("Fitting factors =", factors[i], " components =", components[j], "\n")
+      }
+      
+      if (factors[i] < ncol(x)) {
+        fit <- fit.transformed.factor.mixture(x, factors[i], components[j], bounds, epsilon = epsilon, maxsteps = maxsteps, verbose=verbose)
+        result$fits[[i]][[j]] <- fit
+        if(!is.null(fit)) {
+          result$AIC[i,j] <- fit$mfa$AIC
         }
       } else {
         result$fits[[i]][[j]] <- NULL

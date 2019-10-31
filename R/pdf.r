@@ -96,6 +96,10 @@ mvd.pdf <- function(fit, x, log = FALSE) {
         return(evaluate.vine.copula(fit, x, log))
     } else if (fit$type == "mfa") {
       return(evaluate.factor.mixture(fit, x, log))
+    } else if (fit$type == "mfa.transformed") {
+      transformed <- mvd.transform_to_unbounded(x, fit$transform.bounds)
+      p <- mvd.pdf(fit$mfa, transformed, log = log)
+      return(mvd.correct_p_for_transformation(x, fit$transform.bounds, p, log = log))
     } else {
         stop("Unknown type")
     }

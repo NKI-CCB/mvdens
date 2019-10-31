@@ -39,7 +39,7 @@
   return(result)
 }
 
-.mixture_expectation_step <- function(x, fit, truncated=T, tdist=F, tdistdf=3) {
+.mixture_expectation_step <- function(x, fit, truncated, tdist=F, tdistdf=3) {
   log_l <- matrix(NA, nrow(x), fit$k)
   for (ki in 1:fit$k) {
     if (tdist) {
@@ -81,17 +81,51 @@
   return(fit)
 }
 
-.fit.gmm.internal <- function(x, K, truncated, bounds, min_cov, epsilon, maxsteps, verbose, tdist, tdistdf = NA) {
-  singular <- F
+.fit.gmm.internal <- function(x, K, truncated, bounds, min_cov, epsilon, maxsteps, numkmeans=20, verbose, tdist, tdistdf = NA) {
+  fit <- NULL
+  
   for (j in 1:10) {
-    fit <- .assign_kmeanspp(x, K)
-    fit$bounds <- bounds
-    fit$min_cov <- min_cov
-    fit$covariances <- list()
+    if (verbose) {
+      cat("Running k-means++..\n")
+    }
+    
+    kmeansfits <- list()
+    kmeansfits_logl <- rep(NA, numkmeans)
+    for (i in 1:numkmeans) {
+      fit <- .assign_kmeanspp(x, K)
+      fit$bounds <- bounds
+      fit$min_cov <- min_cov
+      fit$covariances <- list()
+      fit <- .mixture_maximization_step(x, fit)
+      
+      return_value <- try(fit <- .mixture_expectation_step(x, fit, truncated, tdist, tdistdf), silent = !verbose)
+      if (inherits(return_value, "try-error")) {
+        next
+      }
+      if (any(is.na(fit$weights))) {
+        next
+      }
+      if (any(apply(fit$weights, 2, sum, na.rm=T) == 0)) {
+        next
+      }
+      
+      kmeansfits[[i]] <- fit
+      kmeansfits_logl[i] <- fit$logl
+    }
+    
+    best_initial_fit <- which.max(kmeansfits_logl)
+    fit <- kmeansfits[[best_initial_fit]]
+    
+    if (verbose) {
+      cat("Best k-means likelihood:", max(kmeansfits_logl), "\n")
+      cat("Starting EM..\n")
+    }
+    
     fit <- .mixture_maximization_step(x, fit)
     
     previous_logl <- -Inf
     singular <- F
+    converged <- F
     for (i in 1:maxsteps) {
       return_value <- try(fit <- .mixture_expectation_step(x, fit, truncated, tdist, tdistdf), silent = !verbose)
       if (inherits(return_value, "try-error")) {
@@ -112,7 +146,8 @@
         cat("Log likelihood: ", fit$logl, "\n")
       }
       if (fit$logl - previous_logl < epsilon) {
-        return(fit)
+        converged <- T
+        break;
       } else {
         previous_logl <- fit$logl
       }
@@ -126,12 +161,14 @@
   }
   
   if (singular) {
-    fit$logl <- NA
     warning("singular solutions for 10 restarts")
+    return(NULL)
   } else {
-    warning("not converged after maxsteps")
+    if (!converged) {
+      warning("Solution not converged in", maxsteps, ", returning optimal found solution")
+    }
+    return(fit)
   }
-  return(fit)
 }
 
 #' Fit a Gaussian mixture with a specific number of components.

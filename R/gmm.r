@@ -113,6 +113,11 @@
       kmeansfits_logl[i] <- fit$logl
     }
     
+    if (sum(!is.na(kmeansfits_logl)) == 0) {
+      warning("Could not find initial clustering with k-means++")
+      return(NULL)
+    }
+    
     best_initial_fit <- which.max(kmeansfits_logl)
     fit <- kmeansfits[[best_initial_fit]]
     
@@ -187,6 +192,9 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   }
   
   fit <- .fit.gmm.internal(x, K, truncated = F, bounds = NA, min_cov = NULL, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose, tdist = F)
+  if (is.null(fit)) {
+    return(NULL)
+  }
   
   result <- list()
   result$type <- "gmm"
@@ -197,7 +205,7 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   result$log_likelihood <- fit$logl
   result$AIC <- 2 * nparam - 2 * fit$logl
   result$BIC <- log(nrow(x)) * nparam - 2 * fit$logl
-  result$assignment <- apply(fit$weights, 1, which.max)
+  #result$assignment <- apply(fit$weights, 1, which.max)
   return(structure(result, class = "mvd.density"))
 }
 
@@ -217,6 +225,9 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, v
   result$transform.bounds <- bounds
   transformed <- mvd.transform_to_unbounded(x, bounds)
   result$gmm <- fit.gmm(transformed, K, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+  if (is.null(result$gmm)) {
+    return(NULL)
+  }
   return(structure(result, class = "mvd.density"))
 }
 
@@ -232,6 +243,9 @@ fit.gmm.transformed <- function(x, K, bounds, epsilon = 1e-5, maxsteps = 1000, v
 #' @export
 fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose, tdist = F)
+  if (is.null(fit)) {
+    return(NULL)
+  }
   
   result <- list()
   result$type <- "gmm.truncated"
@@ -261,6 +275,9 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
 #' @export
 fit.tmixture.truncated <- function(x, K, df = 3, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   fit <- .fit.gmm.internal(x, K, truncated = T, bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose, tdist = T, tdistdf = df)
+  if (is.null(fit)) {
+    return(NULL)
+  }
   
   result <- list()
   result$type <- "gmm.truncated"
@@ -302,13 +319,20 @@ gmm.AIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 100
       result$fits[[k]] <- NULL
       result$AIC[k] <- NA
     } else {
-      result$fits[[k]] <- fit.gmm(x, K[k], epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-      result$AIC[k] <- result$fits[[k]]$AIC
+      fit <- fit.gmm(x, K[k], epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
+      if (!is.null(fit)) {
+        result$fits[[k]] <- fit
+        result$AIC[k] <- result$fits[[k]]$AIC
+      }
     }
   }
   if (optimal.only) {
-    ix <- which.min(result$AIC)
-    return(result$fits[[ix]])
+    if (sum(!is.na(result$AIC)) == 0) {
+      return(NULL)
+    } else {
+      ix <- which.min(result$AIC)
+      return(result$fits[[ix]])
+    }
   } else {
     return(result)
   }
@@ -340,12 +364,18 @@ gmm.transformed.AIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 
             result$AIC[k] <- NA
         } else {
             result$fits[[k]] <- fit.gmm.transformed(x, K[k], bounds, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-            result$AIC[k] <- result$fits[[k]]$gmm$AIC
+            if (!is.null(result$fits[[k]])) {
+              result$AIC[k] <- result$fits[[k]]$gmm$AIC
+            }
         }
     }
     if (optimal.only) {
+      if (sum(!is.na(result$AIC)) == 0) {
+        return(NULL)
+      } else {
         ix <- which.min(result$AIC)
         return(result$fits[[ix]])
+      }
     } else {
         return(result)
     }
@@ -377,12 +407,18 @@ gmm.truncated.AIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep
             result$AIC[k] <- NA
         } else {
             result$fits[[k]] <- fit.gmm.truncated(x, K[k], bounds = bounds, min_cov = min_cov, epsilon = epsilon, maxsteps = maxsteps, verbose = verbose)
-            result$AIC[k] <- result$fits[[k]]$AIC
+            if (!is.null(result$fits[[k]])) {
+              result$AIC[k] <- result$fits[[k]]$AIC
+            }
         }
     }
     if (optimal.only) {
+      if (sum(!is.na(result$AIC)) == 0) {
+        return(NULL)
+      } else {
         ix <- which.min(result$AIC)
         return(result$fits[[ix]])
+      }
     } else {
         return(result)
     }

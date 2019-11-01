@@ -3,17 +3,25 @@
 {
     retval <- list()
     retval$structure <- train.function(x.train, p.train, log, fit.params)
-    retval$predicted <- mvd.pdf(retval$structure, x.test, log = log)
+    if (is.null(retval$structure)) {
+      if (log) {
+        retval$predicted <- rep(-Inf, length(p.test))
+      } else {
+        retval$predicted <- rep(0, length(p.test))
+      }
+    } else {
+      retval$predicted <- mvd.pdf(retval$structure, x.test, log = log)
+    }
 
     error <- retval$predicted - p.test
     retval$rmse <- sqrt(mean(error * error))
 
-    if (log) {
-        error <- retval$predicted - p.test - mvd.marginal.likelihood(retval$structure, x.train, p.train, T)
-    } else {
-        error <- retval$predicted - p.test / mvd.marginal.likelihood(retval$structure, x.train, p.train, F)
-    }
-    retval$rmse.corrected <- sqrt(mean(error * error))
+    # if (log) {
+    #     error <- retval$predicted - p.test - mvd.marginal.likelihood(retval$structure, x.train, p.train, T)
+    # } else {
+    #     error <- retval$predicted - p.test / mvd.marginal.likelihood(retval$structure, x.train, p.train, F)
+    # }
+    # retval$rmse.corrected <- sqrt(mean(error * error))
 
     retval$cor.spearman <- cor(retval$predicted, p.test, method = "spearman")
     
@@ -179,11 +187,9 @@ mvd.cv <- function(x, p, log, type, cvtype, nfolds = 10, mcsize = nrow(x) / 10, 
     ns <- length(cv$estimates)
     
     cv$rmse <- rep(NA, ns)
-    cv$rmse.corrected <- rep(NA, ns)
     cv$cor.spearman <- rep(NA, ns)
     for (i in 1:ns) {
       cv$rmse[i] <- cv$estimates[[i]]$rmse
-      cv$rmse.corrected[i] <- cv$estimates[[i]]$rmse.corrected
       cv$cor.spearman[i] <- cv$estimates[[i]]$cor.spearman
     }
     

@@ -1,3 +1,11 @@
+.bw.scott.product <- function(x) {
+  sds <- apply(x, 2, sd)
+  n <- nrow(x)
+  d <- ncol(x)
+  H <- diag(sds) * n ^ (-1 / (d + 4))
+  return(H)
+}
+
 #' Fit a kernel density estimate
 #'
 #' description
@@ -12,8 +20,18 @@
 #' x <- mvtnorm::rmvnorm(50, c(0, 0), rbind(c(1, 0.5), c(0.5, 1)))
 #' fit <- fit.kde(x)
 #' fit <- fit.kde(x, bw.fn = ks::Hpi, diagonal = FALSE)
-fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = TRUE, verbose = FALSE, ...)
+fit.kde <- function(x, adjust = 1, diagonal = ncol(x) > 6,
+                    bw.fn = if(ncol(x) < 6) { if(diagonal) ks::Hpi.diag else ks::Hpi } else { if(diagonal) .bw.scott.product else NULL},
+                    verbose = FALSE, ...)
 {
+  if (is.null(bw.fn)) {
+    if (!diagonal && ncol(x) > 6) {
+      warning("A non-diagonal KDE is selected for >6 dimensions, for which a bandwidth selection method is not implemented. Please supply a custom bandwidth selection method or choose a diagonal bandwidth.")
+    } else {
+      warning("NULL bandwidth function")
+    }
+    return(NULL)
+  }
   n <- nrow(x)
   d <- ncol(x)
   
@@ -23,9 +41,7 @@ fit.kde <- function(x, adjust = 1, bw.fn = bw.SJ, diagonal = TRUE, verbose = FAL
   result$x <- x
   
   if (diagonal) {
-    factor <- n ^ (-1 / (d + 4))
-    bw <- adjust * factor * apply(x, 2, bw.fn, ...)
-    result$H <- diag(bw)
+    result$H <- .bw.scott.product(x)
   } else {
     result$H <- adjust * bw.fn(x, ...)
   }

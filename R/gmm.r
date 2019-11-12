@@ -36,6 +36,17 @@
     result$weights[xi, assign_ix] <- 1
   }
   
+  result$covariances <- list()
+  result$component_weights <- rep(NA, result$k)
+  for (ki in 1:result$k) {
+    result$component_weights[ki] <- sum(result$weights[, ki]) / nrow(x)
+    weighted <- cov.wt(x, result$weights[, ki])
+    if (!is.null(result$min_cov)) {
+      weighted$cov <- pmax(weighted$cov, result$min_cov)
+    }
+    result$covariances[[ki]] <- weighted$cov
+  }
+  
   return(result)
 }
 
@@ -67,7 +78,7 @@
   return(fit)
 }
 
-.mixture_maximization_step <- function(x, fit) {
+.mixture_maximization_step <- function(x, fit, truncated) {
   fit$component_weights <- rep(NA, fit$k)
   for (ki in 1:fit$k) {
     fit$component_weights[ki] <- sum(fit$weights[, ki]) / nrow(x)
@@ -75,8 +86,22 @@
     if (!is.null(fit$min_cov)) {
       weighted$cov <- pmax(weighted$cov, fit$min_cov)
     }
-    fit$centers[ki,] <- weighted$center
-    fit$covariances[[ki]] <- weighted$cov
+    
+    if (truncated) {
+      # Based on Lee and Scott 2012
+      old_mu_k <- fit$centers[ki,]
+      old_sigma_k <- fit$covariances[[ki]]
+      correction <- tmvtnorm::mtmvnorm(sigma = old_sigma_k, lower=fit$bounds[,1] - old_mu_k, upper=fit$bounds[,2] - old_mu_k)
+      
+      # Make covariance matrices symmetric (numerical issue?)
+      symmetric_correction <- (correction$tvar + t(correction$tvar))/2
+      
+      fit$centers[ki,] <- weighted$center - correction$tmean
+      fit$covariances[[ki]] <- weighted$cov + old_sigma_k - symmetric_correction
+    } else {
+      fit$centers[ki,] <- weighted$center
+      fit$covariances[[ki]] <- weighted$cov
+    }
   }
   return(fit)
 }
@@ -95,8 +120,6 @@
       fit <- .assign_kmeanspp(x, K)
       fit$bounds <- bounds
       fit$min_cov <- min_cov
-      fit$covariances <- list()
-      fit <- .mixture_maximization_step(x, fit)
       
       return_value <- try(fit <- .mixture_expectation_step(x, fit, truncated, tdist, tdistdf), silent = !verbose)
       if (inherits(return_value, "try-error")) {
@@ -122,11 +145,11 @@
     fit <- kmeansfits[[best_initial_fit]]
     
     if (verbose) {
-      cat("Best k-means likelihood:", max(kmeansfits_logl), "\n")
+      cat("Best k-means likelihood:", kmeansfits_logl[best_initial_fit], "\n")
       cat("Starting EM..\n")
     }
     
-    fit <- .mixture_maximization_step(x, fit)
+    fit <- .mixture_maximization_step(x, fit, truncated)
     
     previous_logl <- -Inf
     singular <- F
@@ -150,14 +173,18 @@
       if (verbose) {
         cat("Log likelihood: ", fit$logl, "\n")
       }
-      if (fit$logl - previous_logl < epsilon) {
+      if (fit$logl < previous_logl) {
+        # Uhhh, what?? Numerical issues maybe?
+        converged <- T
+        break;
+      } else if (fit$logl - previous_logl < epsilon) {
         converged <- T
         break;
       } else {
         previous_logl <- fit$logl
       }
       
-      fit <- .mixture_maximization_step(x, fit)
+      fit <- .mixture_maximization_step(x, fit, truncated)
     }
     
     if (!singular) {

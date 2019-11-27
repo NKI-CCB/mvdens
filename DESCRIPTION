@@ -1,11 +1,11 @@
 Package: mvdens
 Title: Multivariate density estimation and density regression
-Version: 1.0.0
-Date: 2019-06-21
-Author: Bram Thijssen
+Version: 1.1.0
+Date: 2019-11-27
+Author: Bram Thijssen <b.thijssen@nki.nl>
 Maintainer: Bram Thijssen <b.thijssen@nki.nl>
-Description: Interface for fitting multivariate density functions, including kernel density estimates, Gaussian mixtures, vine copulas and Gaussian processes. The package is tailored for estimating densities from Monte Carlo sampling output, but can be applied to other multivariate density estimation contexts as well.
+Description: Interface for fitting multivariate density functions, including kernel density estimates, Gaussian mixtures, mixtures of factor analyzers, vine copulas and Gaussian processes. The package is tailored for estimating densities from Monte Carlo sampling output, but can be applied to other multivariate density estimation contexts as well.
 Suggests: parallel,doParallel,foreach,XML
 Depends: mixtools,mvtnorm,tmvtnorm,ks,VineCopula,nloptr,betareg,MASS,methods,EMMIXmfa
-License: GPL-2
+License: Apache License 2.0
 RoxygenNote: 6.1.1

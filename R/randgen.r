@@ -33,6 +33,11 @@ mvd.rgen <- function(fit, n) {
       for (i in 1:n) {
         x[i,] <- tmvtnorm::rtmvnorm(1, fit$centers[s[i],], fit$covariances[[s[i]]], fit$bounds[,1], fit$bounds[,2], algorithm=method)
       }
+    } else if (fit$type == "mfa") {
+      x <- EMMIXmfa::rmix(n, fit$mfa_res)
+    }else if (fit$type == "mfa.transformed") {
+      transformed <- mvd.rgen(fit$mfa, n)
+      x <- mvd.transform_from_unbounded(transformed, fit$transform.bounds)
     } else if (fit$type == "gp") {
       stop("Cannot sample from density function described by gaussian process")
     } else if (fit$type == "vine.copula") {

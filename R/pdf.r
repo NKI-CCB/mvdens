@@ -18,8 +18,8 @@ mvd.pdf <- function(fit, x, log = FALSE) {
         if (is.matrix(x)) {
             stopifnot(ncol(x) == ncol(fit$centers))
 
-            p <- matrix(NA, nrow(x), fit$K)
-            for (ki in 1:fit$K) {
+            p <- matrix(NA, nrow(x), fit$num_components)
+            for (ki in 1:fit$num_components) {
                 if (log) {
                     p[, ki] <- mvtnorm::dmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = TRUE) + log(fit$proportions[ki])
                 } else {
@@ -35,8 +35,8 @@ mvd.pdf <- function(fit, x, log = FALSE) {
         } else {
             stopifnot(length(x) == ncol(fit$centers))
 
-            p <- rep(NA, fit$K)
-            for (ki in 1:fit$K) {
+            p <- rep(NA, fit$num_components)
+            for (ki in 1:fit$num_components) {
                 if (log) {
                     p[ki] <- mvtnorm::dmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], log = TRUE) + log(fit$proportions[ki])
                 } else {
@@ -58,8 +58,8 @@ mvd.pdf <- function(fit, x, log = FALSE) {
         if (is.matrix(x)) {
             stopifnot(ncol(x) == ncol(fit$centers))
 
-            p <- matrix(NA, nrow(x), fit$K)
-            for (ki in 1:fit$K) {
+            p <- matrix(NA, nrow(x), fit$num_components)
+            for (ki in 1:fit$num_components) {
                 if (log) {
                     p[, ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
                 } else {
@@ -75,8 +75,8 @@ mvd.pdf <- function(fit, x, log = FALSE) {
         } else {
             stopifnot(length(x) == ncol(fit$centers))
 
-            p <- rep(NA, fit$K)
-            for (ki in 1:fit$K) {
+            p <- rep(NA, fit$num_components)
+            for (ki in 1:fit$num_components) {
                 if (log) {
                     p[ki] <- tmvtnorm::dtmvnorm(x, fit$centers[ki,], fit$covariances[[ki]], lower = fit$bounds[, 1], upper = fit$bounds[, 2], log = TRUE) + log(fit$proportions[ki])
                 } else {

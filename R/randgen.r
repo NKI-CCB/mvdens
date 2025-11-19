@@ -1,3 +1,8 @@
+#' Generate random samples from a fitted distribution
+#'
+#' @param fit An mvd.density object obtained from one of the density fitting functions.
+#' @param n Number of samples to generate.
+#' @export
 mvd.rgen <- function(fit, n) {
     stopifnot(class(fit) == "mvd.density")
 
@@ -16,7 +21,7 @@ mvd.rgen <- function(fit, n) {
         transformed <- mvd.rgen(fit$kde, n)
         x <- mvd.transform_from_unbounded(transformed, fit$transform.bounds)
     } else if (fit$type == "gmm") {
-      s <- sample(fit$k, n, replace = T)
+      s <- sample(fit$num_components, n, replace = T, prob = res$proportions)
       for (i in 1:n) {
         x[i,] <- mvtnorm::rmvnorm(1, fit$centers[s[i],], fit$covariances[[s[i]]])
       }
@@ -29,7 +34,7 @@ mvd.rgen <- function(fit, n) {
       } else {
         method <- "gibbs"
       }
-      s <- sample(fit$k, n, replace = T)
+      s <- sample(fit$num_components, n, replace = T, prob = res$proportions)
       for (i in 1:n) {
         x[i,] <- tmvtnorm::rtmvnorm(1, fit$centers[s[i],], fit$covariances[[s[i]]], fit$bounds[,1], fit$bounds[,2], algorithm=method)
       }

@@ -4,7 +4,7 @@
   stopifnot(is.matrix(x))
 
   result <- list()
-  result$k <- K
+  result$num_components <- K
 
   center_ix <- rep(NA, K)
   center_ix[1] <- sample.int(nrow(x), 1)
@@ -37,8 +37,8 @@
   }
   
   result$covariances <- list()
-  result$component_weights <- rep(NA, result$k)
-  for (ki in 1:result$k) {
+  result$component_weights <- rep(NA, result$num_components)
+  for (ki in 1:result$num_components) {
     result$component_weights[ki] <- sum(result$weights[, ki]) / nrow(x)
     weighted <- cov.wt(x, result$weights[, ki])
     if (!is.null(result$min_cov)) {
@@ -51,8 +51,8 @@
 }
 
 .mixture_expectation_step <- function(x, fit, truncated, tdist=F, tdistdf=3) {
-  log_l <- matrix(NA, nrow(x), fit$k)
-  for (ki in 1:fit$k) {
+  log_l <- matrix(NA, nrow(x), fit$num_components)
+  for (ki in 1:fit$num_components) {
     if (tdist) {
       if (truncated) {
         log_l[, ki] <- tmvtnorm::dtmvt(x, fit$centers[ki,], fit$covariances[[ki]], tdistdf,
@@ -79,8 +79,8 @@
 }
 
 .mixture_maximization_step <- function(x, fit, truncated) {
-  fit$component_weights <- rep(NA, fit$k)
-  for (ki in 1:fit$k) {
+  fit$component_weights <- rep(NA, fit$num_components)
+  for (ki in 1:fit$num_components) {
     fit$component_weights[ki] <- sum(fit$weights[, ki]) / nrow(x)
     weighted <- cov.wt(x, fit$weights[, ki])
     if (!is.null(fit$min_cov)) {
@@ -225,7 +225,7 @@ fit.gmm <- function(x, K, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   
   result <- list()
   result$type <- "gmm"
-  result$K <- K
+  result$num_components <- K
   result$centers <- fit$centers
   result$covariances <- fit$covariances
   result$proportions <- fit$component_weights
@@ -276,7 +276,7 @@ fit.gmm.truncated <- function(x, K, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, 
   
   result <- list()
   result$type <- "gmm.truncated"
-  result$K <- K
+  result$num_components <- K
   result$centers <- fit$centers
   result$covariances <- fit$covariances
   result$proportions <- fit$component_weights
@@ -308,7 +308,7 @@ fit.tmixture.truncated <- function(x, K, df = 3, bounds = cbind(rep(-Inf, ncol(x
   
   result <- list()
   result$type <- "gmm.truncated"
-  result$K <- K
+  result$num_components <- K
   result$centers <- fit$centers
   result$covariances <- fit$covariances
   result$proportions <- fit$component_weights
@@ -333,7 +333,7 @@ fit.tmixture.truncated <- function(x, K, df = 3, bounds = cbind(rep(-Inf, ncol(x
 #' @export
 gmm.AIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   result <- list()
-  result$K <- K
+  result$num_components <- K
   result$AIC <- rep(NA, length(K))
   result$fits <- list()
   for (k in 1:length(K)) {
@@ -378,7 +378,7 @@ gmm.AIC <- function(x, K = 1:6, optimal.only = F, epsilon = 1e-5, maxsteps = 100
 #' @export
 gmm.transformed.AIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
   result <- list()
-  result$K <- K
+  result$num_components <- K
   result$AIC <- rep(NA, length(K))
   result$fits <- list()
   for (k in 1:length(K)) {
@@ -421,7 +421,7 @@ gmm.transformed.AIC <- function(x, K = 1:6, bounds, optimal.only = F, epsilon = 
 #' @export
 gmm.truncated.AIC <- function(x, K = 1:6, bounds = cbind(rep(-Inf, ncol(x)), rep(Inf, ncol(x))), optimal.only = F, min_cov = NULL, epsilon = 1e-5, maxsteps = 1000, verbose = F) {
     result <- list()
-    result$K <- K
+    result$num_components <- K
     result$AIC <- rep(NA, length(K))
     result$fits <- list()
     for (k in 1:length(K)) {

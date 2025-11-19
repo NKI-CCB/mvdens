@@ -124,16 +124,23 @@
     ntest <- length(test_ix)
     ktest <- result$kernel(xtest, xtrain, l)
     
-    integral <- result$kernel.integral(alpha, l, D)
-    f <- abs(integral) * (ktest %*% alpha)
-    f[f < 0] <- 0
-    diff <- result$p[test_ix] - f
-    sse[fi] <- sum(diff ^ 2)
-    if (integral < 0) {
-      # Heavily penalize negative integrals
-      #sse[fi] <- sse[fi] * 1e10
+    if (result$normalize) {
+        integral <- result$kernel.integral(alpha, l, D)
+        f <- abs(integral) * (ktest %*% alpha)
+        
+        if (integral < 0) {
+          # Heavily penalize negative integrals
+          #sse[fi] <- sse[fi] * 1e10
+        }
+    } else {
+        f <- (ktest %*% alpha)
+    }
+    if (!result$log) {
+        f[f < 0] <- 0
     }
     
+    diff <- result$p[test_ix] - f
+    sse[fi] <- sum(diff ^ 2)
   }
   rmse <- sqrt(sum(sse) / n)
   
@@ -180,6 +187,7 @@ fit.gp <- function(x, p, kernel, l = 1.0, optimize = T, normalize = T, sigman = 
     result$x <- x
     result$p <- p
     result$log <- FALSE
+    result$normalize <- normalize
 
     if (optimize) {
       stopifnot(length(l) > 1)
